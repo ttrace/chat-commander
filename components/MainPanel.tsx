@@ -2,7 +2,7 @@ import { useState } from 'react'
 
 export default function MainPanel() {
   const [player, setPlayer] = useState({ name: '冒険者', level: 1, hp: 30, maxHp: 30, mp: 5, maxMp: 5, gold: 12 })
-  const [inventory, setInventory] = useState(['短剣', '薬草'])
+  const [inventory, setInventory] = useState<string[]>(['短剣', '薬草'])
 
   const heal = () => {
     setPlayer(p => ({ ...p, hp: Math.min(p.maxHp, p.hp + 10) }))
