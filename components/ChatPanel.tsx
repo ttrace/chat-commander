@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, KeyboardEvent } from 'react'
+import { NPCS } from '../lib/npcs'
 
 type Message = { who: 'user' | 'system'; text: string }
 
@@ -112,6 +113,51 @@ export default function ChatPanel() {
     setTimeout(() => { justComposedRef.current = false }, 0)
   }
 
+  const runMultiAgent = async (selectedNpcIds: string[], rounds = 1) => {
+    setMessages(prev => [...prev, { who: 'system', text: 'NPCたちが会話を開始しました…' }])
+
+    const payload = { npcIds: selectedNpcIds, rounds, context: messages.map(m => ({ role: m.who === 'user' ? 'user' : 'assistant', content: m.text })) }
+    try {
+      const res = await fetch('/api/multi-agent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+
+      if (!res.body) throw new Error('No response body')
+      const reader = res.body.getReader()
+      const decoder = new TextDecoder()
+      let buf = ''
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buf += decoder.decode(value, { stream: true })
+        const parts = buf.split('\n\n')
+        buf = parts.pop() || ''
+        for (const part of parts) {
+          const line = part.trim()
+          if (!line) continue
+          const m = line.match(/^data: (.*)$/s)
+          if (!m) continue
+          try {
+            const evt = JSON.parse(m[1])
+            if (evt.type === 'utterance') {
+              const who = `npc:${evt.agentId}`
+              setMessages(prev => [...prev, { who: who as any, text: evt.text }])
+            } else if (evt.type === 'error') {
+              setMessages(prev => [...prev, { who: 'system', text: `エラー: ${evt.message}` }])
+            }
+          } catch (e) {
+            console.error('parse sse', e)
+          }
+        }
+      }
+    } catch (err) {
+      setMessages(prev => [...prev, { who: 'system', text: '通信でエラーが発生しました。' }])
+    }
+  }
+
   // auto-scroll to bottom when messages change
   useEffect(() => {
     const el = containerRef.current
@@ -125,8 +171,14 @@ export default function ChatPanel() {
     <div className="h-full flex flex-col">
       <div ref={containerRef} className="flex-1 mb-4 overflow-scroll p-2 border rounded bg-white">
         {messages.map((m, i) => (
-          <div key={i} className={`flex ${m.who === 'user' ? 'justify-end' : 'justify-start'} mb-2`}>
-            <div className={`${m.who === 'user' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-900'} px-4 py-2 rounded-lg max-w-[80%]`}>{m.text}</div>
+          <div key={i} className={`flex ${m.who === 'user' ? 'justify-end' : 'justify-start'} mb-2 items-end`}>
+            {/* show avatar when npc */}
+            {typeof m.who === 'string' && m.who.startsWith('npc:') && (
+              <img src={NPCS.find(n => `npc:${n.id}` === m.who)?.avatar} alt="avatar" className="w-24 h-24 rounded-md mr-2" />
+            )}
+            <div className={`${m.who === 'user' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-900'} px-4 py-2 rounded-lg max-w-[80%]`}>
+              {m.text}
+            </div>
           </div>
         ))}
         {isLoading && <div className="text-sm text-gray-500">思案中...</div>}
@@ -145,6 +197,16 @@ export default function ChatPanel() {
         <button onClick={sendMessage} className="bg-blue-600 text-white px-4 py-2 rounded">
           送信
         </button>
+      </div>
+
+      <div className="mt-3 flex gap-2 flex-wrap">
+        {NPCS.map(n => (
+          <button key={n.id} onClick={() => runMultiAgent([n.id], 1)} className="px-2 py-1 border rounded flex items-center gap-2">
+            <img src={n.avatar} className="w-6 h-6 rounded-full" />
+            <span>{n.name}に喋らせる</span>
+          </button>
+        ))}
+        <button onClick={() => runMultiAgent(NPCS.map(n=>n.id), 1)} className="px-2 py-1 bg-green-500 text-white rounded">全員で会議</button>
       </div>
     </div>
   )
