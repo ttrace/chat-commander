@@ -36,9 +36,50 @@ function ChatPanel() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       })
-      const data = await res.json()
-      const botReply = data.reply || '...'
-      setMessages(prev => [...prev, { who: 'system', text: botReply }])
+
+      if (!res.body) throw new Error('No response body')
+
+      // append a placeholder assistant message and update progressively
+      setMessages(prev => [...prev, { who: 'system', text: '' }])
+      const reader = res.body.getReader()
+      const decoder = new TextDecoder()
+      let acc = ''
+      let finished = false
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        acc += decoder.decode(value, { stream: true })
+        console.debug('[stream] chunk', acc)
+
+        const parts = acc.split('\n\n')
+        acc = parts.pop() || ''
+
+        for (const part of parts) {
+          const line = part.trim()
+          if (!line) continue
+          const m = line.match(/^data: (.*)$/s)
+          if (!m) continue
+          const payloadStr = m[1].trim()
+          if (payloadStr === '[DONE]') { finished = true; break }
+          try {
+            const data = JSON.parse(payloadStr)
+            const delta = data.delta || ''
+            if (delta) {
+              setMessages(prev => {
+                const copy = [...prev]
+                const idx = copy.map(m => m.who).lastIndexOf('system')
+                if (idx >= 0) copy[idx] = { ...copy[idx], text: copy[idx].text + delta }
+                return copy
+              })
+            }
+          } catch (e) {
+            console.error('[stream] JSON parse error for payload:', payloadStr, e)
+          }
+        }
+
+        if (finished) break
+      }
     } catch (err) {
       setMessages(prev => [...prev, { who: 'system', text: '通信でエラーが発生しました。' }])
     } finally {
