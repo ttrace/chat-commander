@@ -107,7 +107,15 @@ export default function ChatPanel() {
   }
 
   const runMultiAgent = async (selectedNpcIds: string[], rounds = 1) => {
-    setMessages(prev => [...prev, { who: 'system', text: 'NPCたちが会話を開始しました…' }])
+                setMessages(prev => {
+      const toAdd = selectedNpcIds.map(id => {
+        const who = `npc:${id}`
+        if (prev.length > 0 && prev[prev.length - 1].who === who) return null
+        return { who, text: '' }
+      }).filter(Boolean)
+      return [...prev, ...toAdd as Message[]]
+    })
+
     const payload = {
       npcIds: selectedNpcIds,
       rounds,
@@ -144,7 +152,17 @@ export default function ChatPanel() {
             const evt = JSON.parse(m[1])
             if (evt.type === 'utterance') {
               const who = `npc:${evt.agentId}`
-              setMessages(prev => [...prev, { who: who as any, text: evt.text }])
+              if (evt.delta) {
+                setMessages(prev => {
+                  const idx = prev.map(m => m.who).lastIndexOf(who)
+                  if (idx >= 0 && idx === prev.length - 1) {
+                    const copy = [...prev]
+                    copy[idx] = { ...copy[idx], text: copy[idx].text + evt.delta }
+                    return copy
+                  }
+                  return [...prev, { who, text: evt.delta }]
+                })
+              }
             } else if (evt.type === 'error') {
               setMessages(prev => [...prev, { who: 'system', text: `エラー: ${evt.message}` }])
             }
@@ -174,7 +192,7 @@ export default function ChatPanel() {
               <img src={NPCS.find(n => `npc:${n.id}` === m.who)?.avatar} alt="avatar" className="w-24 h-24 rounded-md mr-2" />
             )}
             <div className={`${m.who === 'user' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-900'} px-4 py-2 rounded-lg max-w-[80%]`}>
-              {m.text}
+              {m.text === '' ? <span className="text-gray-400 animate-pulse">...</span> : m.text}
             </div>
           </div>
         ))}
