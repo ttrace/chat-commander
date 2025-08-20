@@ -1,0 +1,14 @@
+@import './_base.scss';
+
+// Project-level custom styles
+.app-container {
+  @apply min-h-screen bg-gradient-to-b from-sky-100 to-white p-8;
+}
+
+.card {
+  @apply mx-auto bg-white rounded-xl shadow p-6 grid grid-cols-3 gap-6;
+}
+
+.chat-input {
+  @apply flex-1 border rounded px-3 py-2;
+}

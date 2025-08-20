@@ -139,12 +139,12 @@ function ChatPanel() {
 
 export default function Home() {
   return (
-    <div className="min-h-screen bg-gradient-to-b from-sky-100 to-white p-8">
-      <div className="max-w-6xl mx-auto bg-white rounded-xl shadow p-6 grid grid-cols-3 gap-6" style={{height: '80vh'}}>
-        <div className="col-span-1 overflow-auto">
+    <div className="app-container">
+      <div className="card" style={{height: '80vh'}}>
+        <div className="col-span-2 overflow-auto">
           <MainPanel />
         </div>
-        <div className="col-span-2 flex flex-col">
+        <div className="col-span-1 flex flex-col">
           <h1 className="text-2xl font-bold mb-4">チャットRPG</h1>
           <ChatPanel />
         </div>
