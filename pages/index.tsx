@@ -23,7 +23,7 @@ export default function Home() {
           <MainPanel />
         </div>
         <div className="col-span-2 flex flex-col">
-          <h1 className="text-2xl font-bold mb-4">チャットRPG</h1>
+          <h1 className="text-2xl font-bold mb-4">対策会議室</h1>
           <ChatPanel />
         </div>
       </div>

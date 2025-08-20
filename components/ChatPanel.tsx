@@ -5,7 +5,7 @@ type Message = { who: 'user' | 'system'; text: string }
 
 export default function ChatPanel() {
   const [messages, setMessages] = useState<Message[]>([
-    { who: 'system', text: 'ようこそ、冒険者よ。まず名前を教えてくれ。' },
+    { who: 'system', text: '状況を教えてください' },
   ])
   const containerRef = useRef<HTMLDivElement | null>(null)
   const [text, setText] = useState('')

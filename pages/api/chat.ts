@@ -23,7 +23,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Map frontend 'who' to OpenAI roles. Treat anything not 'user' as 'assistant'.
     const chatMessages = messages.map(m => ({ role: m.who === 'user' ? 'user' : 'assistant', content: m.text || '' }))
     // Prepend a system prompt for RPG behavior.
-    const systemPrompt = process.env.OPENAI_SYSTEM_PROMPT || 'あなたは日本語で振る舞うファンタジーRPGのゲームマスターです。短く具体的に返答し、プレイヤーの選択を促してください。'
+    const systemPrompt = process.env.OPENAI_SYSTEM_PROMPT || 'あなたは対話型シナリオを提供するゲームマスターです。ユーザーから与えられるプロンプトを整理して、それぞれのエージェントが利用するコンテキストを生成しなさい'
     chatMessages.unshift({ role: 'system', content: systemPrompt })
 
     // Start proxying as SSE
