@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, KeyboardEvent } from 'react'
 import { NPCS } from '../lib/npcs'
 
-type Message = { who: 'user' | 'system'; text: string }
+type Message = { who: string; text: string }
 
 export default function ChatPanel() {
   const [messages, setMessages] = useState<Message[]>([
@@ -23,7 +23,6 @@ export default function ChatPanel() {
     setIsLoading(true)
     try {
       const payload = { messages: [...messages, userMsg] }
-      // start streaming request
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -32,7 +31,6 @@ export default function ChatPanel() {
 
       if (!res.body) throw new Error('No response body')
 
-      // append a placeholder assistant message and update it as fragments arrive
       setMessages(prev => [...prev, { who: 'system', text: '' }])
       const reader = res.body.getReader()
       const decoder = new TextDecoder()
@@ -44,10 +42,7 @@ export default function ChatPanel() {
         if (done) break
         acc += decoder.decode(value, { stream: true })
 
-        // Debug: show raw accumulated chunk
         console.debug('[stream] chunk', acc)
-
-        // Split SSE-like chunks separated by double newline
         const parts = acc.split('\n\n')
         acc = parts.pop() || ''
 
@@ -65,10 +60,8 @@ export default function ChatPanel() {
             const data = JSON.parse(payloadStr)
             const delta = data.delta || ''
             if (delta) {
-              // update the last assistant message
               setMessages(prev => {
                 const copy = [...prev]
-                // find last assistant message index
                 const idx = copy.map(m => m.who).lastIndexOf('system')
                 if (idx >= 0) {
                   copy[idx] = { ...copy[idx], text: copy[idx].text + delta }
@@ -115,8 +108,15 @@ export default function ChatPanel() {
 
   const runMultiAgent = async (selectedNpcIds: string[], rounds = 1) => {
     setMessages(prev => [...prev, { who: 'system', text: 'NPCたちが会話を開始しました…' }])
-
-    const payload = { npcIds: selectedNpcIds, rounds, context: messages.map(m => ({ role: m.who === 'user' ? 'user' : 'assistant', content: m.text })) }
+    const payload = {
+      npcIds: selectedNpcIds,
+      rounds,
+      context: messages.map(m => ({
+        role: m.who === 'user' ? 'user' : 'assistant',
+        content: m.text,
+        who: m.who
+      }))
+    }
     try {
       const res = await fetch('/api/multi-agent', {
         method: 'POST',
@@ -158,11 +158,9 @@ export default function ChatPanel() {
     }
   }
 
-  // auto-scroll to bottom when messages change
   useEffect(() => {
     const el = containerRef.current
     if (el) {
-      // scroll to bottom
       el.scrollTop = el.scrollHeight
     }
   }, [messages])
@@ -172,7 +170,6 @@ export default function ChatPanel() {
       <div ref={containerRef} className="flex-1 mb-4 overflow-scroll p-2 border rounded bg-white">
         {messages.map((m, i) => (
           <div key={i} className={`flex ${m.who === 'user' ? 'justify-end' : 'justify-start'} mb-2 items-end`}>
-            {/* show avatar when npc */}
             {typeof m.who === 'string' && m.who.startsWith('npc:') && (
               <img src={NPCS.find(n => `npc:${n.id}` === m.who)?.avatar} alt="avatar" className="w-24 h-24 rounded-md mr-2" />
             )}
@@ -211,3 +208,4 @@ export default function ChatPanel() {
     </div>
   )
 }
+

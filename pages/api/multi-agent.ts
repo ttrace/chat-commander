@@ -19,7 +19,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return
   }
 
-  const { npcIds = [], rounds = 1, context = [] } = req.body as { npcIds?: string[]; rounds?: number; context?: Array<{ role: string; content: string }> }
+  const { npcIds = [], rounds = 1, context = [] } = req.body as { npcIds?: string[]; rounds?: number; context?: Array<{ role: string; content: string; who?: string }> }
 
   res.setHeader('Content-Type', 'text/event-stream')
   res.setHeader('Cache-Control', 'no-cache, no-transform')
@@ -41,12 +41,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const npc = NPCS.find(n => n.id === id)
         if (!npc) continue
 
+        const filteredContext = baseContext.filter(m => m.role === 'user' || m.who === `npc:${id}`)
         const messages = [
           { role: 'system', content: npc.persona },
-          ...baseContext.map(m => ({ role: m.role, content: m.content }))
+          ...filteredContext.map(m => ({ role: m.role === 'user' ? 'user' : 'assistant', content: m.content }))
         ]
 
-        // call OpenAI
         const openaiRes = await fetch('https://api.openai.com/v1/chat/completions', {
           method: 'POST',
           headers: {
@@ -65,7 +65,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
         const data = await openaiRes.json()
         const text = data.choices?.[0]?.message?.content ?? ''
-        baseContext.push({ role: 'assistant', content: text })
         sseWrite(res, { type: 'utterance', agentId: id, name: npc.name, text })
       }
     }
@@ -80,3 +79,4 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return
   }
 }
+
