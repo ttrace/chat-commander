@@ -35,6 +35,7 @@ async function streamFromOllama({
       model,
       messages,
       stream: true,
+      options: { num_ctx: 128000 }
     }),
   });
   if (!ollamaRes.body) throw new Error("No response body from Ollama");
