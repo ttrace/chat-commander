@@ -1,4 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
+import fs from "fs";
+import path from "path";
 import { NPCS, COMMON_PROMPT } from "../../lib/npcs";
 
 const OPENAI_API = process.env.OPENAI_API_KEY;
@@ -46,6 +48,17 @@ export default async function handler(
 
   const baseContext = Array.isArray(context) ? context.slice() : [];
 
+  // 1. XMLシナリオの生textをサーバで読み込む
+  const scenarioPath = path.join(process.cwd(), "scenarios", "op_damascus_suburb.xml");
+  let xmlString: string;
+  try {
+    xmlString = fs.readFileSync(scenarioPath, "utf-8");
+  } catch (e) {
+    sseWrite(res, { type: "error", message: "Scenario XML file not found." });
+    res.end();
+    return;
+  }
+
   try {
     for (let r = 0; r < rounds; r++) {
       for (const id of npcIds) {
@@ -55,8 +68,13 @@ export default async function handler(
         const filteredContext = baseContext.filter(
           (m) => m.role === "user" || m.who === `npc:${id}`
         );
+
+        // 2. シナリオXMLをsystem prompt先頭に添付（生textのまま）
         const messages = [
-          { role: "system", content: `${COMMON_PROMPT}\n${npc.persona}` },
+          {
+            role: "system",
+            content: `${xmlString}\n${COMMON_PROMPT}\n${npc.persona}`,
+          },
           ...filteredContext.map((m) => ({
             role: m.role === "user" ? "user" : "assistant",
             content: m.content,
