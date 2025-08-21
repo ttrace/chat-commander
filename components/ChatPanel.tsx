@@ -15,42 +15,32 @@ export default function ChatPanel() {
   const [isLoading, setIsLoading] = useState(false);
 
   const sendMessage = () => {
-    if (!text.trim()) return;
-    const userMsg: Message = { who: "user", text };
-    console.log('[ChatPanel] user message:', userMsg.text);
-    setMessages((prev) => [...prev, userMsg]);
-    setText("");
-    // No fetch or API call
-  };
-  const onKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") {
-      const nativeComposing =
-        (e as any).nativeEvent && (e as any).nativeEvent.isComposing;
-      if (
-        isComposingRef.current ||
-        isComposing ||
-        nativeComposing ||
-        justComposedRef.current
-      )
-        return;
-      e.preventDefault();
-      sendMessage();
-    }
-  };
+    if (!text.trim()) return
+    const userMsg: Message = { who: 'user', text }
+    setMessages(prev => [...prev, userMsg])
+    setText('')
+  }
 
+  // 5f4c369ベースに戻す
+  const onKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      const nativeComposing = (e as any).nativeEvent && (e as any).nativeEvent.isComposing
+      console.log('[debug] onKeyDown: key=Enter, isComposingRef=', isComposingRef.current, 'isComposing=', isComposing, 'native.isComposing=', nativeComposing, 'justComposed=', justComposedRef.current)
+      if (isComposingRef.current || isComposing || nativeComposing || justComposedRef.current) return
+      e.preventDefault()
+      sendMessage()
+    }
+  }
   const onCompositionStart = () => {
     isComposingRef.current = true;
     setIsComposing(true);
-  };
+  }
   const onCompositionEnd = () => {
     isComposingRef.current = false;
     setIsComposing(false);
     justComposedRef.current = true;
-    setTimeout(() => {
-      justComposedRef.current = false;
-    }, 0);
-  };
-
+    setTimeout(() => { justComposedRef.current = false }, 0);
+  }
   const runMultiAgent = async (selectedNpcIds: string[], rounds = 1) => {
     setMessages((prev) => {
       const toAdd = selectedNpcIds
@@ -116,7 +106,6 @@ export default function ChatPanel() {
             if (evt.type === "utterance") {
               const who = `npc:${evt.agentId}`;
               if (evt.delta) {
-                console.log('[ChatPanel]', who, 'delta:', evt.delta);
                 setMessages((prev) => {
                   const idx = prev.map((m) => m.who).lastIndexOf(who);
                   if (idx >= 0 && idx === prev.length - 1) {
@@ -127,7 +116,6 @@ export default function ChatPanel() {
                     };
                     return copy;
                   }
-                  console.log('[ChatPanel]', who, 'message:', evt.delta);
                   return [...prev, { who, text: evt.delta }];
                 });
               }
@@ -138,7 +126,7 @@ export default function ChatPanel() {
               ]);
             }
           } catch (e) {
-            console.error("parse sse", e);
+            // parse error
           }
         }
       }

@@ -10,8 +10,8 @@
     <ministry name="内務省" role="連絡調整" invited="招集済み" />
   </stakeholders>
   <adversary>
-    <group type="武装細胞" affiliation="イスラム過激派" size_estimate="7" />
-    <activity type="自爆攻撃用爆発物の受領" target="不明" location="ダマスカス市周辺の集落の家屋" />
+    <group type="武装細胞" affiliation="イスラム過激派" size_estimate="7" location="ダマスカス市近郊集落のファヒーム邸" />
+    <activity type="自爆攻撃用爆発物の受領" target="不明"/>
   </adversary>
   <members role="会議の参加者">
     <member id="commander" name="作戦司令官" role="作戦指揮" />
@@ -29,7 +29,7 @@
     </method>
     <status value="計画中" />
   </mission>
-    <rules_of_engagement id="roe_v1" purpose="テロリスト排除" classification="simulation">
+  <rules_of_engagement id="roe_v1" purpose="テロリスト排除" classification="simulation">
     <!-- 基本原則：推測での攻撃禁止・民間人保護最優先 -->
     <principles necessity="true" proportionality="true" distinction="true" precaution="true" minimum_force="true"/>
     
@@ -115,7 +115,7 @@
       <note>破片がアジトの向こう側の壁を越えて飛散する可能性。</note>
     </collateral>
     <casualty_estimates>
-      <if_attack_executes scenario="市内のモスクでの自爆攻撃" civilians_min="20" civilians_max="100" units="人" />
+      <if_attack_executes scenario="市内のモスクに対する自爆攻撃" civilians_min="20" civilians_max="100" units="人" />
       <if_drone_strike weapon="AGM-114 ヘルファイア">
         <enemy combatants="7" units="人" />
         <civilians role="協力者" count="4" units="人" />
@@ -124,12 +124,13 @@
   </risk_assessment>
   <intel_summary confidence="不明">
     <fact>過激派は自爆攻撃用の爆発物を受け取っている。</fact>
-    <fact>計画された民間標的は市内のモスクである。</fact>
+    <fact>テロの対象は市内モスク。</fact>
+    <fact>過激派の所在は市外集落の民家、ファヒーム邸。</fact>
     <fact>英国主導の治安維持部隊は外務省・内務省の担当者を招集している。</fact>
   </intel_summary>
   <unknowns>
     <item>正確な日時と座標</item>
-    <item>施設付近に「協力者」以外の民間人が存在するか</item>
+    <item>ファヒーム邸付近に「協力者」以外の民間人が存在するか</item>
     <item>交戦規則（ROE）と法的承認の具体的内容と現在の状態</item>
     <item>破片挙動に影響する壁材・構造材などの詳細</item>
   </unknowns>
