@@ -1,10 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import fs from "fs";
-import path from "path";
 import { NPCS, COMMON_PROMPT } from "../../lib/npcs";
-
-const OPENAI_API = process.env.OPENAI_API_KEY;
-const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-5-mini";
+import fs from 'fs';
+import path from 'path';
 
 function sseWrite(res: NextApiResponse, obj: any) {
   res.write(`data: ${JSON.stringify(obj)}\n\n`);
@@ -19,6 +16,9 @@ export default async function handler(
     return;
   }
 
+  const OPENAI_API = process.env.OPENAI_API_KEY;
+  const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-5-mini";
+
   if (!OPENAI_API) {
     res.status(500).json({ error: "OPENAI_API_KEY not configured" });
     return;
@@ -28,10 +28,12 @@ export default async function handler(
     npcIds = [],
     rounds = 1,
     context = [],
+    reasoningEfforts = {}, // ここを追加
   } = req.body as {
     npcIds?: string[];
     rounds?: number;
     context?: Array<{ role: string; content: string; who?: string }>;
+    reasoningEfforts?: { [key: string]: "low" | "medium" | "high" };
   };
 
   res.setHeader("Content-Type", "text/event-stream");
@@ -48,16 +50,12 @@ export default async function handler(
 
   const baseContext = Array.isArray(context) ? context.slice() : [];
 
-  // 1. XMLシナリオの生textをサーバで読み込む
-  const scenarioPath = path.join(process.cwd(), "scenarios", "op_damascus_suburb.xml");
-  let xmlString: string;
+  // XMLシナリオの読み込み（省略可、既存の部分）
+  const scenarioPath = path.join(process.cwd(), 'scenarios', 'op_damascus_suburb.xml');
+  let xmlString = '';
   try {
-    xmlString = fs.readFileSync(scenarioPath, "utf-8");
-  } catch (e) {
-    sseWrite(res, { type: "error", message: "Scenario XML file not found." });
-    res.end();
-    return;
-  }
+    xmlString = fs.readFileSync(scenarioPath, 'utf-8');
+  } catch {}
 
   try {
     for (let r = 0; r < rounds; r++) {
@@ -68,19 +66,15 @@ export default async function handler(
         const filteredContext = baseContext.filter(
           (m) => m.role === "user" || m.who === `npc:${id}`
         );
-
-        // 2. シナリオXMLをsystem prompt先頭に添付（生textのまま）
         const messages = [
-          {
-            role: "system",
-            content: `${xmlString}\n${COMMON_PROMPT}\n${npc.persona}`,
-          },
+          { role: "system", content: `${xmlString}\n${COMMON_PROMPT}\n${npc.persona}` },
           ...filteredContext.map((m) => ({
             role: m.role === "user" ? "user" : "assistant",
             content: m.content,
           })),
         ];
 
+        // ここでreasoning_effortをnpcごとに指定
         const openaiRes = await fetch(
           "https://api.openai.com/v1/chat/completions",
           {
@@ -94,6 +88,7 @@ export default async function handler(
               messages,
               stream: true,
               verbosity: "low",
+              reasoning_effort: reasoningEfforts[id] || "medium"
             }),
           }
         );
@@ -146,4 +141,3 @@ export default async function handler(
     return;
   }
 }
-

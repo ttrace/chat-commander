@@ -13,6 +13,14 @@
     <group type="武装細胞" affiliation="イスラム過激派" size_estimate="7" />
     <activity type="自爆攻撃用爆発物の受領" target="市内のモスク" />
   </adversary>
+  <members role="会議の参加者">
+    <member id="commander" name="作戦司令官" role="作戦指揮" />
+    <member id="safety" name="国務省副長官" role="外交調整" />
+    <member id="drone" name="ドローン操縦者" role="国内治安調整" />
+    <member id="local_operator" name="現地オペレーター" role="現場情報提供と工作" />
+    <member id="foreign" name="外務省職員" role="法的承認とROE確認" />
+    <member id="evac" name="被害計測官" role="情報収集と分析" />
+  </members>
   <mission>
     <objective type="テロリスト無力化" intent="多数の民間人被害の未然防止" />
     <method primary="ドローン攻撃">
@@ -21,6 +29,87 @@
     </method>
     <status value="計画中" />
   </mission>
+    <rules_of_engagement id="roe_v1" purpose="テロリスト排除" classification="simulation">
+    <!-- 基本原則：推測での攻撃禁止・民間人保護最優先 -->
+    <principles necessity="true" proportionality="true" distinction="true" precaution="true" minimum_force="true"/>
+    
+    <!-- 用語定義 -->
+    <definitions>
+      <hostile_act>自爆攻撃の準備・実行、爆発物の受領・搬送・装填など明白な攻撃行為。</hostile_act>
+      <hostile_intent>即時に自爆攻撃等へ移行し得る合理的な兆候（遠隔起爆準備、群衆へ接近しながらの装着確認等）。</hostile_intent>
+      <positive_identification acronym="PID">対象が敵戦闘員または攻撃に直接関与する者であることをセンサー/人的情報で識別し、誤認の合理的可能性が低い状態。</positive_identification>
+    </definitions>
+
+    <!-- 法的・組織的承認（即応自衛を除き要同意） -->
+    <authorization>
+      <legal_basis>国内法および国際人道法の範囲内での自己・他者防護と重大被害防止。</legal_basis>
+      <approval_chain>
+        <authority ref_member="commander" role="作戦司令官" required="true" scope="全般"/>
+        <authority ref_member="foreign" role="法的承認とROE確認" required="true" scope="法的承認"/>
+      </approval_chain>
+      <self_defense exception="imminent_threat" description="即時の重大被害が切迫し、他手段が間に合わない場合、最小限度の力で防護可。事後報告必須。"/>
+    </authorization>
+
+    <!-- 交戦成立条件（すべて満たすこと） -->
+    <engagement_criteria>
+      <criterion name="PID" required="true" min_confidence="中" sources="ISR,HUMINT,SIGINT">PIDを確立し、味方/民間人と識別可能。</criterion>
+      <criterion name="hostile_condition" required="true">敵の<ref term="hostile_act"/>または<ref term="hostile_intent"/>が確認されている。</criterion>
+      <criterion name="no_strike_check" required="true">対象・周辺が非戦闘員・医療施設・学校・宗教施設等のノーストライク対象に該当しないこと（該当時は下記例外条項を満たし、高位承認を得る）。</criterion>
+      <criterion name="cde" required="true" max_level="2">付随被害見積り（CDE）が許容範囲内。超過時はエスカレーション。</criterion>
+    </engagement_criteria>
+
+    <!-- 武器・投射制約（詳細な兵器運用手順は含めない） -->
+    <munition_constraints>
+      <primary type="AGM-114 ヘルファイア"/>
+      <weaponeering>
+        <directional_required value="true" reason="破片拡散の最小化"/>
+        <fuzing_preference value="低副次効果"/>
+      </weaponeering>
+      <escalation cde_over="2" to="commander,foreign" action="手段変更/延期/中止検討"/>
+    </munition_constraints>
+
+    <!-- 民間人保護（Abort基準を明文化） -->
+    <civilian_protection>
+      <pattern_of_life required="true" observation_hours="十分" note="日内変動を把握"/>
+      <no_strike_list>
+        <site type="宗教施設" name="市内のモスク" rule="no-strike"/>
+        <site type="医療/教育" rule="no-strike"/>
+      </no_strike_list>
+      <abort_criteria>
+        <criterion>PID喪失または識別に新たな疑義が生じた。</criterion>
+        <criterion>非戦闘員が効果範囲に進入・滞留した。</criterion>
+        <criterion>通信・指揮統制が断たれた/承認の不備が判明した。</criterion>
+        <criterion>天候・遮蔽等でセンサー精度が基準未満。</criterion>
+      </abort_criteria>
+      <conditional_override protected_site="true" allowed="厳格条件下のみ">
+        <condition>即時の多数民間人被害が切迫し、代替手段が現実的に存在しない。</condition>
+        <condition>対象が保護の喪失条件を満たす明白な軍事目的となっている。</condition>
+        <approval level="高位" by="commander,foreign" record="必須"/>
+      </conditional_override>
+    </civilian_protection>
+
+    <!-- 実施前チェック & 通信 -->
+    <pre_strike_checks>
+      <check name="target_correlation" required="true"/>
+      <check name="cde_documented" required="true"/>
+      <check name="live_comms" required="true" channels="司令部, 外務省"/>
+    </pre_strike_checks>
+    <communications comms_check_interval="5分" lost_comms_action="中止/待機"/>
+
+    <!-- 事後措置（透明性・検証） -->
+    <post_strike>
+      <bdaar required="true" content="BDA/付随被害評価/教訓"/>
+      <reporting deadline="30分以内" recipients="司令部, 外務省, 内務省"/>
+      <investigation trigger="民間人被害の疑い/ノーストライク違反の疑い" independent_review="true"/>
+    </post_strike>
+
+    <!-- 運用上の留意 -->
+    <compliance>
+      <roe_review trigger="情報/兵器/環境が変更された場合" action="再承認"/>
+      <training requirement="全参加者が事前ブリーフに参加しROEテストを合格"/>
+      <audit trail="全承認・判断の記録を保存"/>
+    </compliance>
+  </rules_of_engagement>
   <risk_assessment>
     <collateral context="施設配置">
       <note>破片がアジトの向こう側の壁を越えて飛散する可能性。</note>
