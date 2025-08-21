@@ -1,8 +1,8 @@
 <scenario id="op_damascus_suburb" type="対テロ作戦" version="1.0" xml:lang="ja">
   <setting>
-    <time unknown="不明" />
-    <location country="シリア" city="ダマスカス" area="郊外" precision="地区レベル" />
-    <environment type="都市域" />
+    <time unknown="202x年10月23日" />
+    <location country="シリア" city="ダマスカス" area="ダマスカス西部の集落" precision="地区レベル" />
+    <environment type="集落" />
   </setting>
   <stakeholders>
     <unit name="英国治安維持部隊" role="治安維持作戦" />
@@ -11,20 +11,20 @@
   </stakeholders>
   <adversary>
     <group type="武装細胞" affiliation="イスラム過激派" size_estimate="7" />
-    <activity type="自爆攻撃用爆発物の受領" target="市内のモスク" />
+    <activity type="自爆攻撃用爆発物の受領" target="不明" location="ダマスカス市周辺の集落の家屋" />
   </adversary>
   <members role="会議の参加者">
     <member id="commander" name="作戦司令官" role="作戦指揮" />
-    <member id="safety" name="国務省副長官" role="外交調整" />
+    <member id="safety" name="国務省副長官" role="法的承認" />
     <member id="drone" name="ドローン操縦者" role="国内治安調整" />
-    <member id="local_operator" name="現地オペレーター" role="現場情報提供と工作" />
-    <member id="foreign" name="外務省職員" role="法的承認とROE確認" />
+    <member id="local_operator" name="現地オペレーター" role="現場工作" />
+    <member id="foreign" name="外務省職員" role="外交調整" />
     <member id="evac" name="被害計測官" role="情報収集と分析" />
   </members>
   <mission>
     <objective type="テロリスト無力化" intent="多数の民間人被害の未然防止" />
     <method primary="ドローン攻撃">
-      <platform type="無人航空機" name="機種不特定" />
+      <platform type="無人航空機" name="MQ-9 リーパー" />
       <munition type="AGM-114 ヘルファイア" fragmentation="あり" />
     </method>
     <status value="計画中" />
