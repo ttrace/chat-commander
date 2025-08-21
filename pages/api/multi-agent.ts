@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { NPCS } from "../../lib/npcs";
+import { NPCS, COMMON_PROMPT } from "../../lib/npcs";
 
 const OPENAI_API = process.env.OPENAI_API_KEY;
 const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-5-mini";
@@ -56,7 +56,7 @@ export default async function handler(
           (m) => m.role === "user" || m.who === `npc:${id}`
         );
         const messages = [
-          { role: "system", content: npc.persona },
+          { role: "system", content: `${COMMON_PROMPT}\n${npc.persona}` },
           ...filteredContext.map((m) => ({
             role: m.role === "user" ? "user" : "assistant",
             content: m.content,
@@ -128,3 +128,4 @@ export default async function handler(
     return;
   }
 }
+
