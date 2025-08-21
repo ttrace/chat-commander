@@ -16,6 +16,8 @@ Next.js + React + TypeScript + Tailwind CSS構成で、シナリオをXML管理�
 
 ---
 
+![alt text](resources/images/chat-commander.png)
+
 ## セットアップ手順
 
 1. **リポジトリをクローン・依存インストール**
