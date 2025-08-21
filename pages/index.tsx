@@ -18,7 +18,7 @@ function ChatMessage({ who, text }: Message) {
 export default function Home() {
   return (
     <div className="app-container">
-      <div className="card" style={{height: '80vh'}}>
+      <div className="card">
         <div className="col-span-1 overflow-auto">
           <MainPanel />
         </div>

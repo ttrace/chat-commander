@@ -184,8 +184,8 @@ export default function ChatPanel() {
   }, [messages])
 
   return (
-    <div className="h-full flex flex-col">
-      <div ref={containerRef} className="flex-1 mb-4 overflow-scroll p-2 border rounded bg-white">
+    <div className="flex flex-col h-full max-h-full">
+      <div ref={containerRef} className="flex-1 bg-black mb-4 overflow-y-auto max-h-[60vh] p-2 border rounded">
         {messages.map((m, i) => (
           <div key={i} className={`flex ${m.who === 'user' ? 'justify-end' : 'justify-start'} mb-2 items-end`}>
             {typeof m.who === 'string' && m.who.startsWith('npc:') && (
