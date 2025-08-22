@@ -21,6 +21,7 @@ async function streamFromOllama({
   model: string;
   messages: any[];
 }) {
+  let inThink = false; // <think>~</think>タグ内フラグ
   console.log(
     `[Ollama] Connecting to Ollama server for npcId=${npcId}, name=${name}, model=${model}`
   );
@@ -35,7 +36,7 @@ async function streamFromOllama({
       model,
       messages,
       stream: true,
-      options: { num_ctx: 128000 }
+      options: { num_ctx: 8192 },
     }),
   });
   if (!ollamaRes.body) throw new Error("No response body from Ollama");
@@ -53,20 +54,54 @@ async function streamFromOllama({
       if (!line) continue;
       if (line.startsWith("{")) {
         const obj = JSON.parse(line);
-        const content = obj.message?.content || "";
-        if (!content) {
-          console.log("[Ollama] streamed object (no delta):", obj);
-        } else {
-          console.log("[Ollama] streamed delta:", content);
-        }
+        let content = obj.message?.content || "";
+
+        // <think>ステート処理
+        if (!inThink && content.includes("<think>")) {
+          inThink = true;
+          const idx = content.indexOf("<think>");
+          const before = content.slice(0, idx);
+          if (before.trim()) {
         res.write(
           `data: ${JSON.stringify({
             type: "utterance",
             agentId: npcId,
             name,
-            delta: content,
+                delta: before,
           })}\n\n`
         );
+      }
+          continue; // <think>以降は送らない
+    }
+        if (inThink && content.includes("</think>")) {
+          inThink = false;
+          const idx = content.indexOf("</think>") + "</think>".length;
+          const after = content.slice(idx);
+          if (after.trim()) {
+            res.write(
+              `data: ${JSON.stringify({
+                  type: "utterance",
+                agentId: npcId,
+                name,
+                delta: after,
+              })}\n\n`
+            );
+          }
+          continue; // </think>までをスキップ
+        }
+        if (inThink) {
+          continue; // <think>タグ内は送信しない
+      }
+        if (content.trim()) {
+          res.write(
+            `data: ${JSON.stringify({
+              type: "utterance",
+              agentId: npcId,
+              name,
+              delta: content,
+            })}\n\n`
+          );
+    }
       }
     }
   }
@@ -95,7 +130,7 @@ export default async function handler(
   // Ollamaルート
   if (backend === "ollama") {
     const { npcIds = [], messages = [] } = req.body;
-    // XMLシナリオの読み込み
+
     const scenarioPath = path.join(
       process.cwd(),
       "scenarios",
@@ -108,7 +143,6 @@ export default async function handler(
     for (const id of npcIds) {
       const npc = NPCS.find((n) => n.id === id);
       if (!npc) continue;
-      // systemプロンプトの追加
       const systemPrompt = `${xmlString}\n${COMMON_PROMPT}\n${npc.persona}`;
       const ollamaMessages = [
         { role: "system", content: systemPrompt },
@@ -250,3 +284,4 @@ export default async function handler(
     return;
   }
 }
+

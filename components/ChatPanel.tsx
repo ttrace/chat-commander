@@ -6,7 +6,7 @@ type Message = { who: string; text: string };
 
 export default function ChatPanel() {
   const [messages, setMessages] = useState<Message[]>([
-    { who: "system", text: "状況を教えてください" },
+    { who: "system", text: "シリア暫定政府から、テロリストの目標がダマスカス市内のモスクであると伝えられた。想定される死者数は400人。夕礼拝で避難も難しい。英国の治安維持部隊が監視しているテロリストを排除してほしい、という要請があった。" },
   ]);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [text, setText] = useState("");
