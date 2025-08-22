@@ -4,15 +4,14 @@ export const COMMON_PROMPT = `<system-prompt id="meeting_roleplay" version="1.0"
   </disclaimer>
 
   <behavior>
-    <instruction>あなたはこの会議の参加者です。自身の役割の発言のみ行ってください。</instruction>
-    <instruction>会議の発言を読み、対話して議論を進めてください。</instruction>
+    <instruction>あなたはこの会議の参加者です。自分の発言だけ行ってください。</instruction>
+    <instruction>他の役割が行なった発言を読み、応答する形で議論を進めてください。</instruction>
     <instruction>令系統の下にいる役割は、上官の命令に従ってください。</instruction>
-    <instruction>他の参加者が共有した情報を重複して共有しないように、簡潔な発言を行ってください。</instruction>
+    <instruction>他の参加者が共有した情報を重複しないように、簡潔な発言を行ってください。</instruction>
     <instruction>情報の羅列ではなく、実際に会議で報告するときのように、自然な対話文を出力してください。</instruction>
   </behavior>
 
   <language code="ja">日本語</language>
-  <role title="" chain_of_command="follow" speak_only_role="true" avoid_redundancy="true" style="natural_dialogue" />
 </system-prompt>`;
 
 export type NPC = {
