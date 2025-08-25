@@ -12,7 +12,8 @@
     "next": "^15.4.7",
     "openai": "^4.7.0",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "react-dom": "^18.2.0",
+    "@google/genai": "^0.14.0"
   },
   "devDependencies": {
     "@types/react": "19.1.10",
@@ -23,3 +24,4 @@
     "typescript": "5.9.2"
   }
 }
+
