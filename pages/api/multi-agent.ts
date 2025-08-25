@@ -210,7 +210,7 @@ export default async function handler(
         const messages = [
           {
             role: "system",
-            content: `${xmlString}\n${COMMON_PROMPT}\n${npc.persona}`,
+            content: `${COMMON_PROMPT}\n${npc.persona}\n\n${xmlString}\n`,
           },
           ...filteredContext.map((m) => ({
             role: m.role === "user" ? "user" : "assistant",
