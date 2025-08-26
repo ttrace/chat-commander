@@ -6,7 +6,10 @@ type Message = { who: string; text: string };
 
 export default function ChatPanel() {
   const [messages, setMessages] = useState<Message[]>([
-    { who: "system", text: "シリア暫定政府から、テロリストの目標がダマスカス市内のモスクであると伝えられた。想定される死者数は400人。夕礼拝で避難も難しい。英国の治安維持部隊が監視しているテロリストを排除してほしい、という要請があった。" },
+    {
+      who: "system",
+      text: "シリア暫定政府から、テロリストの目標がダマスカス市内のモスクであると伝えられた。想定される死者数は400人。夕礼拝で避難も難しい。英国の治安維持部隊が監視しているテロリストを排除してほしい、という要請があった。",
+    },
   ]);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [text, setText] = useState("");
@@ -14,11 +17,14 @@ export default function ChatPanel() {
   const isComposingRef = useRef(false);
   const justComposedRef = useRef(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [backend, setBackend] = useState<'openai' | 'ollama'>('openai');
-  const [ollamaModel, setOllamaModel] = useState('gemma3:4b');
 
-  const sendMessage = () => {
+  const [backend, setBackend] = useState<"openai" | "gemini" | "ollama">(
+    "openai"
+  );
+  const [ollamaModel, setOllamaModel] = useState<string>("llama3.1");
+  const [selectorOpen, setSelectorOpen] = useState(false);
+
+  const sendMessage = async () => {
     if (!text.trim()) return;
     const userMsg: Message = { who: "user", text };
     setMessages((prev) => [...prev, userMsg]);
@@ -53,7 +59,7 @@ export default function ChatPanel() {
     }, 0);
   };
 
-  const runMultiAgent = async (selectedNpcIds: string[], rounds = 1) => {
+  async function runMultiAgent(selectedNpcIds: string[], rounds = 1) {
     setMessages((prev) => {
       const toAdd = selectedNpcIds
         .map((id) => {
@@ -87,67 +93,116 @@ export default function ChatPanel() {
       }
     });
 
-    const apiUrl = '/api/multi-agent';
-    const openaiPayload = {
-      npcIds: selectedNpcIds,
-      rounds,
-      context: messagesArray,
-    };
-    const ollamaPayload = {
-      npcIds: selectedNpcIds,
-      model: ollamaModel,
-      messages: messagesArray,
-      stream: true,
-      backend: 'ollama',
-    };
+    console.log("Received messages:", messagesArray);
+    if (!messagesArray) {
+      setMessages((prev) => [
+        ...prev,
+        { who: "system", text: "エラー: messages missing in request body" },
+      ]);
+      return;
+    }
 
-    const payload = backend === 'ollama' ? ollamaPayload : openaiPayload;
+    setIsLoading(true);
     try {
-      const res = await fetch(apiUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      if (!res.body) throw new Error("No response body");
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buf = "";
+      const payload = {
+        backend,
+        messages,
+        ollamaModel: backend === "ollama" ? ollamaModel : undefined,
+      };
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
+      console.groupCollapsed("POST /api/multi-agent payload");
+      console.dir(payload);
+      console.groupEnd();
+
+      const res = await fetch("/api/multi-agent", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          npcIds: selectedNpcIds,
+          rounds,
+          context: messagesArray,
+          backend,
+          model: backend === "ollama" ? ollamaModel : undefined,
+        }),
+      });
+
+      if (!res.ok) {
+        const errorText = await res.text();
+        setMessages((prev) => [
+          ...prev,
+          { who: "system", text: `エラー: ${res.status} ${errorText}` },
+        ]);
+        setIsLoading(false);
+        return;
+      }
+
+      const reader = res.body?.getReader();
+      const decoder = new TextDecoder();
+      if (!reader) {
+        setIsLoading(false);
+        return;
+      }
+
+      let buf = "";
+      let done = false;
+      while (!done) {
+        const { value, done: streamDone } = await reader.read();
+        if (streamDone) break;
         buf += decoder.decode(value, { stream: true });
-        const parts = buf.split('\n\n');
-        buf = parts.pop() || '';
+        const parts = buf.split("\n\n");
+        buf = parts.pop() || "";
         for (const part of parts) {
-          const line = part.trim();
-          if (!line) continue;
-          const m = line.match(/^data: (.*)$/s);
-          if (!m) continue;
+          const trimmed = part.trim();
+          if (!trimmed.startsWith("data:")) continue;
+          const json = trimmed.slice(5).trim();
+          if (!json) continue;
           try {
-            const evt = JSON.parse(m[1]);
-            const delta =
-              evt.delta ??
-              (evt.message && typeof evt.message.content === 'string'
-                ? evt.message.content
-                : '');
-            if (delta) {
-              setMessages((prev) => {
-                const who = evt.agentId ? `npc:${evt.agentId}` : (evt.message?.role === "assistant" ? 'assistant' : '');
+            const evt = JSON.parse(json);
+            if (evt.error) {
+              setMessages((prev) => [
+                ...prev,
+                { who: "system", text: `エラー: ${evt.error}` },
+              ]);
+              done = true;
+              break;
+            } else if (evt.done) {
+              done = true;
+              break;
+            } else if (
+              evt.delta ||
+              (evt.message && typeof evt.message.content === "string")
+            ) {
+              const delta =
+                evt.delta ??
+                (evt.message && typeof evt.message.content === "string"
+                  ? evt.message.content
+                  : "");
+              if (delta) {
+                setMessages((prev) => {
+                  const who = evt.agentId
+                    ? `npc:${evt.agentId}`
+                    : evt.message?.role === "assistant"
+                    ? "assistant"
+                    : "";
                   const idx = prev.map((m) => m.who).lastIndexOf(who);
                   if (idx >= 0 && idx === prev.length - 1) {
                     const copy = [...prev];
                     copy[idx] = {
                       ...copy[idx],
-                    text: copy[idx].text + delta,
+                      text: copy[idx].text + delta,
                     };
                     return copy;
                   }
-                return [...prev, { who, text: delta }];
+                  return [...prev, { who, text: delta }];
                 });
               }
+            }
           } catch (e) {
-            console.error('parse sse', e);
+            setMessages((prev) => [
+              ...prev,
+              { who: "system", text: "SSE parse error." },
+            ]);
+            done = true;
           }
         }
       }
@@ -156,8 +211,10 @@ export default function ChatPanel() {
         ...prev,
         { who: "system", text: "通信でエラーが発生しました。" },
       ]);
+    } finally {
+      setIsLoading(false);
     }
-  };
+  }
 
   useEffect(() => {
     const el = containerRef.current;
@@ -233,7 +290,7 @@ export default function ChatPanel() {
             <span>{n.name}に喋らせる</span>
           </button>
         ))}
-        <button
+        {/* <button
           onClick={() =>
             runMultiAgent(
               NPCS.map((n) => n.id),
@@ -243,25 +300,20 @@ export default function ChatPanel() {
           className="px-2 py-1 bg-green-500 text-white rounded"
         >
           全員で会議
-        </button>
+        </button> */}
       </div>
 
       <div className="flex items-center mt-2">
         <button
-          className="ml-auto mr-2 text-gray-500 hover:text-gray-700"
-          onClick={() => setModalOpen(true)}
+          className="border px-2 py-1 rounded"
+          onClick={() => setSelectorOpen(true)}
         >
-          <svg width="28" height="28" fill="none" viewBox="0 0 24 24">
-            <path
-              fill="currentColor"
-              d="M11.8 9.1a2.9 2.9 0 1 1 0 5.8 2.9 2.9 0 0 1 0-5.8zm7.7 2.9c0-.4 0-.7-.1-1.1l1.6-1.3a.4.4 0 0 0 .1-.5l-1.5-2.7a.5.5 0 0 0-.5-.2l-1.9.8c-.3-.2-.6-.4-.9-.6l-.3-2a.4.4 0 0 0-.4-.3h-3a.4.4 0 0 0-.4.3l-.3 2c-.3.2-.6.4-.9.6l-1.9-.8a.5.5 0 0 0-.5.2l-1.5 2.7c-.1.2 0 .5.1.5l1.6 1.3a6 6 0 0 0-.1 1.1c0 .4 0 .7.1 1.1l-1.6 1.3a.4.4 0 0 0-.1.5l1.5 2.7c.1.2.3.3.5.2l1.9-.8c.3.2.6.4.9.6l.3 2a.4.4 0 0 0 .4.3h3a.4.4 0 0 0 .4-.3l.3-2c.3-.2.6-.4.9-.6l1.9.8a.5.5 0 0 0 .5-.2l1.5-2.7a.4.4 0 0 0-.1-.5l-1.6-1.3c.1-.4.1-.7.1-1.1z"
-            />
-          </svg>
+          モデル選択
         </button>
       </div>
       <ModelSelectorPanel
-        open={modalOpen}
-        onClose={() => setModalOpen(false)}
+        open={selectorOpen}
+        onClose={() => setSelectorOpen(false)}
         backend={backend}
         setBackend={setBackend}
         ollamaModel={ollamaModel}
