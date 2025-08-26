@@ -1,5 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { NPCS, COMMON_PROMPT } from "../../lib/npcs";
+import { generateGeminiText } from "../../lib/gemini";
 import fs from "fs";
 import path from "path";
 
@@ -7,7 +8,7 @@ function sseWrite(res: NextApiResponse, obj: any) {
   res.write(`data: ${JSON.stringify(obj)}\n\n`);
 }
 
-// Ollamaストリーム取得用の関数
+// Ollamaストリーム取得用（既存ロジックをほぼそのまま）
 async function streamFromOllama({
   res,
   npcId,
@@ -21,7 +22,7 @@ async function streamFromOllama({
   model: string;
   messages: any[];
 }) {
-  let inThink = false; // <think>~</think>タグ内フラグ
+  let inThink = false;
   console.log(
     `[Ollama] Connecting to Ollama server for npcId=${npcId}, name=${name}, model=${model}`
   );
@@ -62,17 +63,17 @@ async function streamFromOllama({
           const idx = content.indexOf("<think>");
           const before = content.slice(0, idx);
           if (before.trim()) {
-        res.write(
-          `data: ${JSON.stringify({
-            type: "utterance",
-            agentId: npcId,
-            name,
+            res.write(
+              `data: ${JSON.stringify({
+                type: "utterance",
+                agentId: npcId,
+                name,
                 delta: before,
-          })}\n\n`
-        );
-      }
-          continue; // <think>以降は送らない
-    }
+              })}\n\n`
+            );
+          }
+          continue;
+        }
         if (inThink && content.includes("</think>")) {
           inThink = false;
           const idx = content.indexOf("</think>") + "</think>".length;
@@ -80,18 +81,18 @@ async function streamFromOllama({
           if (after.trim()) {
             res.write(
               `data: ${JSON.stringify({
-                  type: "utterance",
+                type: "utterance",
                 agentId: npcId,
                 name,
                 delta: after,
               })}\n\n`
             );
           }
-          continue; // </think>までをスキップ
+          continue;
         }
         if (inThink) {
-          continue; // <think>タグ内は送信しない
-      }
+          continue;
+        }
         if (content.trim()) {
           res.write(
             `data: ${JSON.stringify({
@@ -101,13 +102,90 @@ async function streamFromOllama({
               delta: content,
             })}\n\n`
           );
-    }
+        }
       }
     }
   }
   console.log(`[Ollama] Finished streaming for npcId=${npcId}, name=${name}`);
 }
 
+// ユーティリティ: シナリオXMLを読み込む（存在しなければ空文字）
+function loadScenarioXML(scenarioFile = "op_damascus_suburb.xml") {
+  const scenarioPath = path.join(process.cwd(), "scenarios", scenarioFile);
+  try {
+    return fs.readFileSync(scenarioPath, "utf-8");
+  } catch {
+    return "";
+  }
+}
+
+// 各バックエンド向けメッセージ生成を集約
+function buildMessagesForOpenAI({
+  npc,
+  baseContext,
+  xmlString,
+}: {
+  npc: { id: string; persona: string; name: string };
+  baseContext: Array<{ role: string; content: string; who?: string }>;
+  xmlString: string;
+}) {
+  // filteredContext: user or messages from this npc
+  const filteredContext = baseContext.filter(
+    (m) => m.role === "user" || m.who === `npc:${npc.id}`
+  );
+  const systemContent = `${COMMON_PROMPT}\n${npc.persona}\n\n${xmlString}\n`;
+  const messages = [
+    { role: "system", content: systemContent },
+    ...filteredContext.map((m) => ({
+      role: m.role === "user" ? "user" : "assistant",
+      content: m.content,
+    })),
+  ];
+  return messages;
+}
+
+function buildMessagesForOllama({
+  npc,
+  requestMessages,
+  xmlString,
+}: {
+  npc: { id: string; persona: string; name: string };
+  requestMessages: any[]; // messages passed in request body (assumed chat format)
+  xmlString: string;
+}) {
+  const systemPrompt = `${xmlString}\n${COMMON_PROMPT}\n${npc.persona}`;
+  const ollamaMessages = [
+    { role: "system", content: systemPrompt },
+    ...(requestMessages || []),
+  ];
+  return ollamaMessages;
+}
+
+// Gemini 用メッセージビルダー（OpenAI と同等の system を付与）
+function buildMessagesForGemini({
+  npc,
+  baseContext,
+  xmlString,
+}: {
+  npc: { id: string; persona: string; name: string };
+  baseContext: Array<{ role: string; content: string; who?: string }>;
+  xmlString: string;
+}) {
+  const filteredContext = baseContext.filter(
+    (m) => m.role === "user" || m.who === `npc:${npc.id}`
+  );
+  const systemContent = `${COMMON_PROMPT}\n${npc.persona}\n\n${xmlString}\n`;
+  const messages = [
+    { role: "system", content: systemContent },
+    ...filteredContext.map((m) => ({
+      role: m.role === "user" ? "user" : "assistant",
+      content: m.content,
+    })),
+  ];
+  return messages;
+}
+
+// メインハンドラ
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
@@ -119,35 +197,109 @@ export default async function handler(
 
   const OPENAI_API = process.env.OPENAI_API_KEY;
   const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-5-mini";
-  const { backend = "openai", model: ollamaModel } = req.body;
+  const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+  const { backend, messages, ollamaModel, npcId, scenario } = req.body as {
+    backend: "openai" | "gemini" | "ollama";
+    messages?: { role: string; content: string }[];
+    ollamaModel?: string;
+    npcId?: string;
+    scenario?: string;
+  };
 
+  console.log("[multi-agent] incoming payload:", {
+    backend,
+    messages_len: Array.isArray(messages) ? messages.length : "NA",
+    roles: Array.isArray(messages) ? messages.map((m) => m.role) : "NA",
+    ollamaModel,
+    npcId,
+    scenario,
+  });
+
+  // --- Gemini branch (簡単な流れ: messages を渡して generateGeminiText を呼ぶ) ---
+  if (backend === "gemini") {
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache, no-transform");
+    res.setHeader("Connection", "keep-alive");
+    res.setHeader("X-Accel-Buffering", "no");
+    res.flushHeaders?.();
+
+    const {
+      npcIds = [],
+      rounds = 1,
+      context = [],
+    } = req.body as {
+      npcIds?: string[];
+      rounds?: number;
+      context?: Array<{ role: string; content: string; who?: string }>;
+    };
+
+    if (!Array.isArray(npcIds) || npcIds.length === 0) {
+      sseWrite(res, { type: "error", message: "npcIds required" });
+      res.end();
+      return;
+    }
+
+    const baseContext = Array.isArray(context) ? context.slice() : [];
+    const xmlString = loadScenarioXML(scenario || "op_damascus_suburb.xml");
+
+    try {
+      for (let r = 0; r < rounds; r++) {
+        for (const id of npcIds) {
+          const npc = NPCS.find((n) => n.id === id);
+          if (!npc) continue;
+
+          const geminiMessages = buildMessagesForGemini({
+            npc,
+            baseContext,
+            xmlString,
+          });
+
+          console.log('[geminicontext]', npc, baseContext, xmlString);
+
+          // ストリーム対応のラッパー関数を呼ぶ（内部で generateGeminiText を使う）
+          await streamFromGemini({
+            res,
+            npcId: id,
+            name: npc.name,
+            messages: geminiMessages,
+          });
+        }
+      }
+
+      sseWrite(res, { type: "done" });
+      res.end();
+      return;
+    } catch (err: any) {
+      sseWrite(res, { type: "error", message: err.message || String(err) });
+      res.end();
+      return;
+    }
+  }
+
+  // SSE ヘッダ（OpenAI / Ollama 共通で使用）
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache, no-transform");
   res.setHeader("Connection", "keep-alive");
   res.setHeader("X-Accel-Buffering", "no");
   res.flushHeaders?.();
 
-  // Ollamaルート
+  // --- Ollama branch ---
   if (backend === "ollama") {
-    const { npcIds = [], messages = [] } = req.body;
+    const { npcIds = [], messages: reqMessages = [] } = req.body as {
+      npcIds?: string[];
+      messages?: any[];
+    };
 
-    const scenarioPath = path.join(
-      process.cwd(),
-      "scenarios",
-      "op_damascus_suburb.xml"
-    );
-    let xmlString = "";
-    try {
-      xmlString = fs.readFileSync(scenarioPath, "utf-8");
-    } catch {}
+    const xmlString = loadScenarioXML(scenario || "op_damascus_suburb.xml");
+
     for (const id of npcIds) {
       const npc = NPCS.find((n) => n.id === id);
       if (!npc) continue;
-      const systemPrompt = `${xmlString}\n${COMMON_PROMPT}\n${npc.persona}`;
-      const ollamaMessages = [
-        { role: "system", content: systemPrompt },
-        ...messages,
-      ];
+      const ollamaMessages = buildMessagesForOllama({
+        npc,
+        requestMessages: reqMessages,
+        xmlString,
+      });
       await streamFromOllama({
         res,
         npcId: id,
@@ -156,13 +308,14 @@ export default async function handler(
         messages: ollamaMessages,
       });
     }
+
     console.log(`[Ollama] Done all npcs`);
     sseWrite(res, { type: "done" });
     res.end();
     return;
   }
 
-  // OpenAIルート
+  // --- OpenAI branch ---
   if (!OPENAI_API) {
     sseWrite(res, { type: "error", message: "OPENAI_API_KEY not configured" });
     res.end();
@@ -188,15 +341,7 @@ export default async function handler(
   }
 
   const baseContext = Array.isArray(context) ? context.slice() : [];
-  const scenarioPath = path.join(
-    process.cwd(),
-    "scenarios",
-    "op_damascus_suburb.xml"
-  );
-  let xmlString = "";
-  try {
-    xmlString = fs.readFileSync(scenarioPath, "utf-8");
-  } catch {}
+  const xmlString = loadScenarioXML(scenario || "op_damascus_suburb.xml");
 
   try {
     for (let r = 0; r < rounds; r++) {
@@ -204,19 +349,11 @@ export default async function handler(
         const npc = NPCS.find((n) => n.id === id);
         if (!npc) continue;
 
-        const filteredContext = baseContext.filter(
-          (m) => m.role === "user" || m.who === `npc:${id}`
-        );
-        const messages = [
-          {
-            role: "system",
-            content: `${COMMON_PROMPT}\n${npc.persona}\n\n${xmlString}\n`,
-          },
-          ...filteredContext.map((m) => ({
-            role: m.role === "user" ? "user" : "assistant",
-            content: m.content,
-          })),
-        ];
+        const openaiMessages = buildMessagesForOpenAI({
+          npc,
+          baseContext,
+          xmlString,
+        });
 
         const openaiRes = await fetch(
           "https://api.openai.com/v1/chat/completions",
@@ -228,7 +365,7 @@ export default async function handler(
             },
             body: JSON.stringify({
               model: OPENAI_MODEL,
-              messages,
+              messages: openaiMessages,
               stream: true,
               verbosity: "low",
               reasoning_effort: reasoningEfforts[id] || "medium",
@@ -285,3 +422,61 @@ export default async function handler(
   }
 }
 
+// generateGeminiText の戻り値がストリーム (AsyncIterable<string>) or string の両方に対応して SSE で送る
+async function streamFromGemini({
+  res,
+  npcId,
+  name,
+  messages,
+}: {
+  res: NextApiResponse;
+  npcId: string;
+  name: string;
+  messages: any[];
+}) {
+  // generateGeminiText は実装により同期/非同期/ストリーミングの形があるため両方対応するラッパー
+  const result = await generateGeminiText(messages);
+  // case: async iterable (streaming)
+  if (result && typeof (result as any)[Symbol.asyncIterator] === "function") {
+    for await (const chunk of result as AsyncIterable<string>) {
+      if (chunk && chunk.trim()) {
+        sseWrite(res, {
+          type: "utterance",
+          agentId: npcId,
+          name,
+          delta: chunk,
+        });
+      }
+    }
+    return;
+  }
+  // case: sync iterable
+  if (result && typeof (result as any)[Symbol.iterator] === "function") {
+    for (const chunk of result as Iterable<string>) {
+      if (chunk && chunk.trim()) {
+        sseWrite(res, {
+          type: "utterance",
+          agentId: npcId,
+          name,
+          delta: chunk,
+        });
+      }
+    }
+    return;
+  }
+  // case: plain string
+  if (typeof result === "string") {
+    if (result.trim()) {
+      sseWrite(res, {
+        type: "utterance",
+        agentId: npcId,
+        name,
+        delta: result,
+      });
+    }
+    return;
+  }
+
+  // 不明な戻り値の場合はエラー通知
+  sseWrite(res, { type: "error", message: "Unsupported Gemini response type" });
+}
