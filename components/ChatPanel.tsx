@@ -4,10 +4,56 @@ import ModelSelectorPanel from "./ModelSelectorPanel";
 
 type Message = { who: string; text: string };
 
+// New function to use POST+SSE (see user suggestion)
+async function startMultiAgentStream(
+  payload: any,
+  onDelta: (obj: any) => void,
+  onDone?: () => void,
+  onError?: (error: any) => void
+) {
+  const res = await fetch("/api/multi-agent", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.body) throw new Error("No response body");
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buf = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += decoder.decode(value, { stream: true });
+    const parts = buf.split("\n\n");
+    buf = parts.pop() || "";
+    for (const part of parts) {
+      const line = part.trim();
+      if (!line) continue;
+      // server は "data: JSON\n\n" を書いている想定
+      const m = line.match(/^data: (.*)$/s);
+      if (!m) continue;
+      try {
+        const payload = JSON.parse(m[1]);
+        if (payload.type === "done") {
+          onDone?.();
+        } else {
+          onDelta(payload);
+        }
+      } catch (e) {
+        console.error("invalid SSE data", e);
+      }
+    }
+  }
+  onDone?.();
+}
+
 export default function ChatPanel() {
   const [messages, setMessages] = useState<Message[]>([
     {
       who: "system",
+
       text: "シリア暫定政府から、テロリストの目標がダマスカス市内のモスクであると伝えられた。想定される死者数は400人。夕礼拝で避難も難しい。英国の治安維持部隊が監視しているテロリストを排除してほしい、という要請があった。",
     },
   ]);
@@ -93,125 +139,133 @@ export default function ChatPanel() {
       }
     });
 
-    console.log("Received messages:", messagesArray);
-    if (!messagesArray) {
-      setMessages((prev) => [
-        ...prev,
-        { who: "system", text: "エラー: messages missing in request body" },
-      ]);
+    setIsLoading(true);
+
+    if (backend === "gemini") {
+      const params = new URLSearchParams({
+        npcIds: selectedNpcIds.join(","),
+        rounds: String(rounds),
+        backend,
+        model: backend === "ollama" ? ollamaModel : "",
+        context: encodeURIComponent(JSON.stringify(messagesArray)),
+      });
+
+      await startMultiAgentStream(
+        {
+          npcIds: selectedNpcIds,
+          rounds: rounds,
+          backend: backend,
+          model: "",
+          context: messagesArray,
+        },
+        (evt) => {
+          if (evt.error) {
+            setMessages((prev) => [
+              ...prev,
+              { who: "system", text: `エラー: ${evt.error}` },
+            ]);
+            setIsLoading(false);
+            return;
+          }
+          if (evt.done || evt.type === "done") {
+            setIsLoading(false);
+            return;
+          }
+          if (evt.delta && evt.npcId) {
+            const delta = evt.delta;
+            const who = `npc:${evt.npcId}`;
+            setMessages((prev) => {
+              const idx = prev.map((m) => m.who).lastIndexOf(who);
+              if (idx >= 0 && idx === prev.length - 1) {
+                const copy = [...prev];
+                copy[idx] = {
+                  ...copy[idx],
+                  text: copy[idx].text + delta,
+                };
+                return copy;
+              }
+              return [...prev, { who, text: delta }];
+            });
+          }
+        },
+        () => {
+          setIsLoading(false);
+        },
+        (err) => {
+          setMessages((prev) => [
+            ...prev,
+            { who: "system", text: "通信でエラーが発生しました。" },
+          ]);
+          setIsLoading(false);
+        }
+      );
+
       return;
     }
 
-    setIsLoading(true);
+    // For other backends, use startMultiAgentStream (POST/SSE)
     try {
-      const payload = {
-        backend,
-        messages,
-        ollamaModel: backend === "ollama" ? ollamaModel : undefined,
-      };
-
-      console.groupCollapsed("POST /api/multi-agent payload");
-      console.dir(payload);
-      console.groupEnd();
-
-      const res = await fetch("/api/multi-agent", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      await startMultiAgentStream(
+        {
           npcIds: selectedNpcIds,
           rounds,
           context: messagesArray,
           backend,
           model: backend === "ollama" ? ollamaModel : undefined,
-        }),
-      });
-
-      if (!res.ok) {
-        const errorText = await res.text();
-        setMessages((prev) => [
-          ...prev,
-          { who: "system", text: `エラー: ${res.status} ${errorText}` },
-        ]);
-        setIsLoading(false);
-        return;
-      }
-
-      const reader = res.body?.getReader();
-      const decoder = new TextDecoder();
-      if (!reader) {
-        setIsLoading(false);
-        return;
-      }
-
-      let buf = "";
-      let done = false;
-      while (!done) {
-        const { value, done: streamDone } = await reader.read();
-        if (streamDone) break;
-        buf += decoder.decode(value, { stream: true });
-        const parts = buf.split("\n\n");
-        buf = parts.pop() || "";
-        for (const part of parts) {
-          const trimmed = part.trim();
-          if (!trimmed.startsWith("data:")) continue;
-          const json = trimmed.slice(5).trim();
-          if (!json) continue;
-          try {
-            const evt = JSON.parse(json);
-            if (evt.error) {
-              setMessages((prev) => [
-                ...prev,
-                { who: "system", text: `エラー: ${evt.error}` },
-              ]);
-              done = true;
-              break;
-            } else if (evt.done) {
-              done = true;
-              break;
-            } else if (
-              evt.delta ||
-              (evt.message && typeof evt.message.content === "string")
-            ) {
-              const delta =
-                evt.delta ??
-                (evt.message && typeof evt.message.content === "string"
-                  ? evt.message.content
-                  : "");
-              if (delta) {
-                setMessages((prev) => {
-                  const who = evt.agentId
-                    ? `npc:${evt.agentId}`
-                    : evt.message?.role === "assistant"
-                    ? "assistant"
-                    : "";
-                  const idx = prev.map((m) => m.who).lastIndexOf(who);
-                  if (idx >= 0 && idx === prev.length - 1) {
-                    const copy = [...prev];
-                    copy[idx] = {
-                      ...copy[idx],
-                      text: copy[idx].text + delta,
-                    };
-                    return copy;
-                  }
-                  return [...prev, { who, text: delta }];
-                });
-              }
-            }
-          } catch (e) {
+        },
+        (evt) => {
+          if (evt.error) {
             setMessages((prev) => [
               ...prev,
-              { who: "system", text: "SSE parse error." },
+
+              { who: "system", text: `エラー: ${evt.error}` },
             ]);
-            done = true;
+
+            setIsLoading(false);
+            return;
           }
+          if (evt.done || evt.type === "done") {
+            setIsLoading(false);
+            return;
+          }
+          let delta: string | undefined = undefined;
+          let who: string = "";
+          if (evt.delta && evt.agentId) {
+            delta = evt.delta;
+            who = `npc:${evt.agentId}`;
+          } else if (
+            evt.message &&
+            typeof evt.message.content === "string" &&
+            evt.message.role === "assistant"
+          ) {
+            delta = evt.message.content;
+            who = "assistant";
+          }
+          if (delta !== undefined && who) {
+            setMessages((prev) => {
+              const idx = prev.map((m) => m.who).lastIndexOf(who);
+              if (idx >= 0 && idx === prev.length - 1) {
+                const copy = [...prev];
+                copy[idx] = {
+                  ...copy[idx],
+                  text: copy[idx].text + delta,
+                };
+                return copy;
+              }
+              return [...prev, { who, text: delta! }];
+            });
+          }
+        },
+        () => {
+          setIsLoading(false);
         }
-      }
+      );
     } catch (err) {
       setMessages((prev) => [
         ...prev,
         { who: "system", text: "通信でエラーが発生しました。" },
       ]);
-    } finally {
+
       setIsLoading(false);
     }
   }
@@ -290,17 +344,6 @@ export default function ChatPanel() {
             <span>{n.name}に喋らせる</span>
           </button>
         ))}
-        {/* <button
-          onClick={() =>
-            runMultiAgent(
-              NPCS.map((n) => n.id),
-              1
-            )
-          }
-          className="px-2 py-1 bg-green-500 text-white rounded"
-        >
-          全員で会議
-        </button> */}
       </div>
 
       <div className="flex items-center mt-2">
@@ -322,4 +365,3 @@ export default function ChatPanel() {
     </div>
   );
 }
-

@@ -1,10 +1,9 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { NPCS, COMMON_PROMPT } from "../../lib/npcs";
-import { generateGeminiText } from "../../lib/gemini";
 import fs from "fs";
 import path from "path";
 
-// ---- 既存ユーティリティ（そのまま） ----
+// ---- Utility ----
 function sseWrite(res: NextApiResponse, obj: any) {
   res.write(`data: ${JSON.stringify(obj)}\n\n`);
 }
@@ -18,7 +17,6 @@ function loadScenarioXML(scenarioFile = "op_damascus_suburb.xml") {
   }
 }
 
-// ---- 既存のメッセージビルダ（変更なし） ----
 function buildMessagesForOpenAI({
   npc,
   baseContext,
@@ -48,7 +46,7 @@ function buildMessagesForOllama({
   xmlString,
 }: {
   npc: { id: string; persona: string; name: string };
-  requestMessages: any[]; // for ollama we pass request messages directly
+  requestMessages: any[];
   xmlString: string;
 }) {
   const systemPrompt = `${xmlString}\n${COMMON_PROMPT}\n${npc.persona}`;
@@ -82,7 +80,6 @@ function buildMessagesForGemini({
   return messages;
 }
 
-// ---- streamFromOllama: 既存ロジックを関数化して流用 ----
 async function streamFromOllama({
   res,
   npcId,
@@ -128,7 +125,6 @@ async function streamFromOllama({
         const obj = JSON.parse(line);
         let content = obj.message?.content || "";
 
-        // <think> ステート処理（既存）
         if (!inThink && content.includes("<think>")) {
           inThink = true;
           const idx = content.indexOf("<think>");
@@ -173,7 +169,7 @@ async function streamFromOllama({
   console.log(`[Ollama] Finished streaming for npcId=${npcId}, name=${name}`);
 }
 
-// ---- streamFromGemini: 既存ラッパー利用（generateGeminiText を呼ぶ） ----
+// --- Gemini streaming: forwards an async generator to SSE response as requested ---
 async function streamFromGemini({
   res,
   npcId,
@@ -185,33 +181,32 @@ async function streamFromGemini({
   name: string;
   messages: any[];
 }) {
-  const result = await generateGeminiText(messages);
-  if (result && typeof (result as any)[Symbol.asyncIterator] === "function") {
-    for await (const chunk of result as AsyncIterable<string>) {
-      if (chunk && chunk.trim()) {
-        sseWrite(res, { type: "utterance", agentId: npcId, name, delta: chunk });
-      }
+  // Set headers for SSE, in case the handler is called directly (idempotent)
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders?.();
+
+  try {
+    const { generateGeminiStream } = await import("../../lib/gemini");
+    for await (const delta of generateGeminiStream(messages)) {
+      const payload = { npcId, name, delta };
+      res.write(`data: ${JSON.stringify(payload)}\n\n`);
     }
-    return;
+    res.write(`event: done\ndata: {}\n\n`);
+    res.end();
+  } catch (err: any) {
+    console.error('Error streaming Gemini:', err);
+    res.write(
+      `event: error\ndata: ${JSON.stringify({
+        message: err.message || String(err),
+      })}\n\n`
+    );
+    res.end();
   }
-  if (result && typeof (result as any)[Symbol.iterator] === "function") {
-    for (const chunk of result as Iterable<string>) {
-      if (chunk && chunk.trim()) {
-        sseWrite(res, { type: "utterance", agentId: npcId, name, delta: chunk });
-      }
-    }
-    return;
-  }
-  if (typeof result === "string") {
-    if (result.trim()) {
-      sseWrite(res, { type: "utterance", agentId: npcId, name, delta: result });
-    }
-    return;
-  }
-  sseWrite(res, { type: "error", message: "Unsupported Gemini response type" });
 }
 
-// ---- streamFromOpenAI: OpenAI ストリーミングロジックを切り出し ----
+// --- OpenAI streaming logic ---
 async function streamFromOpenAI({
   res,
   npcId,
@@ -273,14 +268,11 @@ async function streamFromOpenAI({
         if (delta) {
           sseWrite(res, { type: "utterance", agentId: npcId, name, delta });
         }
-      } catch (e) {
-        // ignore parse errors
-      }
+      } catch (e) {}
     }
   }
 }
 
-// ---- backend strategy map ----
 const BACKENDS = {
   openai: {
     buildMessages: buildMessagesForOpenAI,
@@ -296,7 +288,6 @@ const BACKENDS = {
   },
 } as const;
 
-// ---- メインハンドラ（共通ループ化） ----
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") {
     res.status(405).json({ error: "Method not allowed" });
@@ -324,7 +315,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return;
   }
 
-  // SSE ヘッダ（共通）
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache, no-transform");
   res.setHeader("Connection", "keep-alive");
@@ -346,10 +336,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const npc = NPCS.find((n) => n.id === id);
         if (!npc) continue;
 
-        // 各 backend に応じた message 生成
         let messagesForBackend: any[];
         if (backendKey === "ollama") {
-          // ollama はリクエストメッセージ（raw）を渡す想定
           messagesForBackend = buildMessages({
             npc,
             requestMessages,
@@ -364,7 +352,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
 
         try {
-          // backend ごとの stream 関数を呼ぶ（必要な追加パラメータを渡す）
           if (backendKey === "openai") {
             if (!OPENAI_API) {
               sseWrite(res, { type: "error", message: "OPENAI_API_KEY not configured" });
@@ -401,7 +388,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
       }
     }
-
     sseWrite(res, { type: "done" });
     res.end();
   } catch (err: any) {
