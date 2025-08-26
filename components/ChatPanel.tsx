@@ -93,7 +93,6 @@ export default function ChatPanel() {
       }
     });
 
-    // SUGGESTED EDIT: Add debug log and example input validation
     console.log("Received messages:", messagesArray);
     if (!messagesArray) {
       setMessages((prev) => [
@@ -106,15 +105,11 @@ export default function ChatPanel() {
     setIsLoading(true);
     try {
       const payload = {
-        backend, // 既存state
-        messages, // 送信する会話履歴
+        backend,
+        messages,
         ollamaModel: backend === "ollama" ? ollamaModel : undefined,
-        // 必要に応じて npcId や scenario など他のパラメータも追加
-        // npcId,
-        // scenario,
       };
 
-      // 送信前のpayloadをブラウザコンソールに出す
       console.groupCollapsed("POST /api/multi-agent payload");
       console.dir(payload);
       console.groupEnd();
@@ -295,7 +290,7 @@ export default function ChatPanel() {
             <span>{n.name}に喋らせる</span>
           </button>
         ))}
-        <button
+        {/* <button
           onClick={() =>
             runMultiAgent(
               NPCS.map((n) => n.id),
@@ -305,7 +300,7 @@ export default function ChatPanel() {
           className="px-2 py-1 bg-green-500 text-white rounded"
         >
           全員で会議
-        </button>
+        </button> */}
       </div>
 
       <div className="flex items-center mt-2">
@@ -327,3 +322,4 @@ export default function ChatPanel() {
     </div>
   );
 }
+

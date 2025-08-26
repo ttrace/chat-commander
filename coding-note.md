@@ -11,30 +11,40 @@
 
 - `components/ChatPanel.tsx`  
   メインチャットUI・ロジック。エージェント選択、発言送信、返信ストリーム受信、backend種別切り替えも担当。  
-  **注意**: 日本語IME対応のための`composing`と`onCompositionStart`/`onCompositionEnd`部のコードは変更を加えないでください。
+  **注意**: 日本語IME対応のための`composing`と`onCompositionStart`/`onCompositionEnd`部のコードは変更禁止。
 
-- `lib/npcs.ts`  
-  NPCの定義・共通プロンプト・キャラXML出力ロジック。`NPCS`配列に全エージェント情報とpersona(XML形式含む)が保存されています。
+- `components/MainPanel.tsx`
+  サブUIパネル。本体チャットやモデル切替など、複数のパネルを管理。
 
+- `components/ModelSelectorPanel.tsx`
+  LLMの選択UI。
 ### バックエンド(API)
 
 - `pages/api/multi-agent.ts`  
-  NPC複数会話処理のAPI。OpenAIおよびOllama両方のストリーム生成・分岐、プロンプト合成、セーフな履歴管理など。  
-  deltaストリーミング・Ollamaのthinkブロックの抑制・systemプロンプト合成ロジックもここに含まれます。
-
+  各種LLMプロバイダー（OpenAI, Ollamaなど）へのプロキシAPI。
+  クライアントからのリクエストを受信し、指定プロバイダへ問い合わせる。ストリームレスポンスは`sseWrite(res, obj)`関数（`data: ...\n\n`形式）で統一的に出力する。
 - `pages/api/chat.ts`  
-  一般的なチャットAPI（詳細はコードおよび仕様参照）。
-
+  別エンドポイントの（詳細未記載）API。
 - `pages/api/xml-to-5w1h.ts`  
-  シナリオXMLから5W1Hフォーマットを生成するAPI。OpenAI API呼び出しと出力JSON返却等。
+  XMLから5W1H形式に変換するAPI。
 
-### ページ・UI
+### ドメインロジック・共通定義
 
-- `pages/_app.tsx`  
-  Next.jsのトップラップファイル。
+- `lib/npcs.ts`
+  NPCの定義・共通プロンプト・キャラクター情報(XML形式含む)の格納・出力。
 
-### 設定・依存
+- `lib/prompts.ts`
+  プロンプト定義・管理。
 
+- `lib/gemini.ts`
+  Gemini APIとのやりとりに関する実装。
+
+### データ・リソース
+
+- `scenarios/op_damascus_suburb.xml`
+  シナリオ用XMLファイル例。民間人保護やミッションAbort基準の記述がある。
+
+### システム・設定
 - `package.json`  
   依存パッケージ・スクリプト管理。
 
@@ -42,19 +52,17 @@
   TypeScript構成ファイル。
 
 - `next.config.js`  
-  Next.jsビルド・実行設定ファイル。`pageExtensions`指定など。
-
+  Next.jsビルド・実行設定ファイル。
 - `next-env.d.ts`  
-  Next.js型補助ファイル。
+  Next.js用型定義。**編集禁止**ファイル。
 
 - `styles/globals.css` / `styles/globals.scss`  
   Tailwind等グローバルスタイル指定。
 
-### シナリオ・データ
+### ページ・UI
 
-- `scenarios/` ディレクトリ  
-  シナリオXMLファイルを格納（例: `op_damascus_suburb.xml`）。ゲーム会議ロールプレイの元情報。
-
+- `pages/_app.tsx`
+  Next.jsトップラップファイル。
 ### ドキュメント
 
 - `README.md`, `README_RUN.md`  
@@ -62,13 +70,15 @@
 
 ---
 
-## 注意事項
+## コーディング注意事項（引き継ぎ）
 
-- **日本語 IME 対応のための `composing` に関するコードは編集禁止です。**  
-  これに該当する`ChatPanel.tsx`の`onCompositionStart`/`onCompositionEnd`、`isComposingRef`, `justComposedRef`、発言送信制御等は絶対に手を加えないでください。
-
-- 新たなファイルやAPI追加時は、上記の役割と整合が取れるように保守してください。
-
+- **日本語IME入力対応のため、`components/ChatPanel.tsx`での`composing`・`onCompositionStart`・`onCompositionEnd`のロジックは**
+  **絶対に変更しないこと。**
+- バックエンドLLM拡張時はAPIロジック・アダプタを分離（例：lib/ 以下で管理）し、API本体（multi-agent.ts）は共通I/Fに。
+- ストリーム送信には必ず`sseWrite`関数を利用すること。
+- `next-env.d.ts`は自動生成。手動編集禁止。
 ---
+
+ファイルや機能の追加時も、上記フォーマットに従い役割・注意点を追記してください。
 
 _Last updated: 2025-08_20
