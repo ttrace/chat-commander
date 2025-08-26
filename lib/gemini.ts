@@ -6,14 +6,14 @@ if (!GEMINI_API_KEY) {
 }
 
 const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
+
+// 既存の同期的に全文取得する関数
 export async function generateGeminiText(messages: { role: string; content: string }[]): Promise<string> {
-  // system を先頭にまとめる（複数あれば全部結合）
   const systemPart = messages
     .filter(m => m.role === "system")
     .map(m => m.content)
     .join("\n\n");
 
-  // 会話履歴（assistant/user）を適切に整形して含める
   const conversationPart = messages
     .filter(m => m.role !== "system")
     .map(m => {
@@ -22,18 +22,50 @@ export async function generateGeminiText(messages: { role: string; content: stri
     })
     .join("\n\n");
 
-  // 最終プロンプト（system があれば先頭に挿入）
   const prompt = [systemPart, conversationPart].filter(Boolean).join("\n\n");
 
   try {
-    // ai.models.generateContent に渡す形は既存コードに合わせる（string を渡す実装）
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
-      contents: prompt, // system を含んだ prompt を渡す
+      contents: prompt,
     });
     return response.text;
   } catch (e) {
     console.error("Gemini text generation error:", e);
+    throw e;
+  }
+}
+
+// 新規追加: ストリームで少しずつ文章生成を受け取るための async generator 関数
+export async function* generateGeminiStream(messages: { role: string; content: string }[]): AsyncGenerator<string> {
+  const systemPart = messages
+    .filter(m => m.role === "system")
+    .map(m => m.content)
+    .join("\n\n");
+
+  const conversationPart = messages
+    .filter(m => m.role !== "system")
+    .map(m => {
+      const roleLabel = m.role === "user" ? "ユーザー" : "アシスタント";
+      return `${roleLabel}: ${m.content}`;
+    })
+    .join("\n\n");
+
+  const prompt = [systemPart, conversationPart].filter(Boolean).join("\n\n");
+
+  try {
+    const responseStream = await ai.models.generateContentStream({
+      model: "gemini-2.5-flash",
+      contents: prompt,
+    });
+    for await (const chunk of responseStream) {
+      const text = (chunk as any).text ?? "";
+      if (text) {
+        yield text;
+      }
+    }
+  } catch (e) {
+    console.error("Gemini streaming error:", e);
     throw e;
   }
 }
