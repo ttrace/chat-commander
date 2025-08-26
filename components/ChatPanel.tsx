@@ -67,7 +67,7 @@ export default function ChatPanel() {
   const [backend, setBackend] = useState<"openai" | "gemini" | "ollama">(
     "openai"
   );
-  const [ollamaModel, setOllamaModel] = useState<string>("llama3.1");
+  const [ollamaModel, setOllamaModel] = useState<string>("gemma3:4b");
   const [selectorOpen, setSelectorOpen] = useState(false);
 
   const sendMessage = async () => {
@@ -106,6 +106,7 @@ export default function ChatPanel() {
   };
 
   async function runMultiAgent(selectedNpcIds: string[], rounds = 1) {
+    // console.log('[runMultiAgent] called, ollamaModel=', ollamaModel);
     setMessages((prev) => {
       const toAdd = selectedNpcIds
         .map((id) => {

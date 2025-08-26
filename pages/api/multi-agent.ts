@@ -49,7 +49,7 @@ function buildMessagesForOllama({
   requestMessages: any[];
   xmlString: string;
 }) {
-  const systemPrompt = `${xmlString}\n${COMMON_PROMPT}\n${npc.persona}`;
+  const systemPrompt = `${COMMON_PROMPT}\n${npc.persona}\n\n${xmlString}\n`;
   const ollamaMessages = [
     { role: "system", content: systemPrompt },
     ...(requestMessages || []),
@@ -374,11 +374,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               messages: messagesForBackend,
             });
           } else if (backendKey === "ollama") {
+            const { model, ollamaModel } = req.body as any; // ここで model を取得
             await (streamFn as typeof streamFromOllama)({
               res,
               npcId: id,
               name: npc.name,
-              model: ollamaModel || "llama3",
+              model: model || "gemma3:4b",
               messages: messagesForBackend,
             });
           }
