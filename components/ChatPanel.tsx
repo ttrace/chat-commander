@@ -147,10 +147,11 @@ export default function ChatPanel() {
         npcIds: selectedNpcIds.join(","),
         rounds: String(rounds),
         backend,
-        model: backend === "ollama" ? ollamaModel : "",
+        model: "gemini-2.5-flash",
         context: encodeURIComponent(JSON.stringify(messagesArray)),
       });
 
+      // Use GET + WebSocket for Gemini
       await startMultiAgentStream(
         {
           npcIds: selectedNpcIds,
@@ -158,6 +159,7 @@ export default function ChatPanel() {
           backend: backend,
           model: "",
           context: messagesArray,
+          structured: false,
         },
         (evt) => {
           if (evt.error) {
@@ -206,6 +208,8 @@ export default function ChatPanel() {
 
     // For other backends, use startMultiAgentStream (POST/SSE)
     try {
+
+      // Use POST + SSE for other backends
       await startMultiAgentStream(
         {
           npcIds: selectedNpcIds,
@@ -213,6 +217,7 @@ export default function ChatPanel() {
           context: messagesArray,
           backend,
           model: backend === "ollama" ? ollamaModel : undefined,
+          structured: false,
         },
         (evt) => {
           if (evt.error) {

@@ -1,4 +1,6 @@
-import React from 'react';
+import type { Dispatch, SetStateAction } from "react";
+
+type Backend = "openai" | "gemini" | "ollama";
 
 function ModelSelectorPanel({
   open,
@@ -11,7 +13,7 @@ function ModelSelectorPanel({
   open: boolean;
   onClose: () => void;
   backend: string;
-  setBackend: (mode: string) => void;
+    setBackend: Dispatch<SetStateAction<Backend>>; // Reactのセッター型に合わせる
   ollamaModel: string;
   setOllamaModel: (model: string) => void;
 }) {

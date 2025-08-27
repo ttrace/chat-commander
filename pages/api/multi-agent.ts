@@ -2,6 +2,35 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { NPCS, COMMON_PROMPT } from "../../lib/npcs";
 import fs from "fs";
 import path from "path";
+import Ajv from "ajv";
+
+// ---- AJV JSON Schema setup ----
+const ajv = new Ajv();
+const nextTurnSchema = {
+  $schema: "http://json-schema.org/draft-07/schema#",
+  title: "NextTurnDirective",
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    utterance: {
+      type: "string",
+      description: "今回の発言（日本語の自然文）。会議に出す台詞そのもの。",
+    },
+    next_speaker: {
+      type: "string",
+      description: "次の発言者のID。例: commander, drone_op_1 など",
+      pattern: "^[a-z0-9_\\-]+$",
+    },
+  },
+  required: ["utterance", "next_speaker"],
+};
+const validateNextTurn = ajv.compile(nextTurnSchema);
+
+// --- Utility: extractJson ---
+function extractJson(text: string): string | null {
+  const m = text.match(/\{[\s\S]*\}/);
+  return m ? m[0] : null;
+}
 
 // ---- Utility ----
 function sseWrite(res: NextApiResponse, obj: any) {
@@ -17,6 +46,7 @@ function loadScenarioXML(scenarioFile = "op_damascus_suburb.xml") {
   }
 }
 
+// サーバー送信メッセージの作成（OpenAI用）
 function buildMessagesForOpenAI({
   npc,
   baseContext,
@@ -40,6 +70,7 @@ function buildMessagesForOpenAI({
   return messages;
 }
 
+// サーバー送信メッセージの作成（Ollama用）
 function buildMessagesForOllama({
   npc,
   requestMessages,
@@ -57,6 +88,7 @@ function buildMessagesForOllama({
   return ollamaMessages;
 }
 
+// サーバー送信メッセージの作成（Gemini用）
 function buildMessagesForGemini({
   npc,
   baseContext,
@@ -80,6 +112,7 @@ function buildMessagesForGemini({
   return messages;
 }
 
+// Ollamaからのストリーミング応答処理
 async function streamFromOllama({
   res,
   npcId,
@@ -95,9 +128,9 @@ async function streamFromOllama({
 }) {
   let inThink = false;
   console.log(
-    `[Ollama] Connecting to Ollama server for npcId=${npcId}, name=${name}, model=${model}`
+    "[Ollama] Ollama payload:",
+    JSON.stringify({ model, messages, stream: true })
   );
-  console.log("[Ollama] Ollama payload:", JSON.stringify({ model, messages, stream: true }));
   const ollamaRes = await fetch("http://localhost:11434/api/chat", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -169,7 +202,7 @@ async function streamFromOllama({
   console.log(`[Ollama] Finished streaming for npcId=${npcId}, name=${name}`);
 }
 
-// --- Gemini streaming: forwards an async generator to SSE response as requested ---
+// Geminiからのストリーミング応答処理
 async function streamFromGemini({
   res,
   npcId,
@@ -181,10 +214,9 @@ async function streamFromGemini({
   name: string;
   messages: any[];
 }) {
-  // Set headers for SSE, in case the handler is called directly (idempotent)
-  res.setHeader('Content-Type', 'text/event-stream');
-  res.setHeader('Cache-Control', 'no-cache');
-  res.setHeader('Connection', 'keep-alive');
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
   res.flushHeaders?.();
 
   try {
@@ -196,7 +228,7 @@ async function streamFromGemini({
     res.write(`event: done\ndata: {}\n\n`);
     res.end();
   } catch (err: any) {
-    console.error('Error streaming Gemini:', err);
+    console.error("Error streaming Gemini:", err);
     res.write(
       `event: error\ndata: ${JSON.stringify({
         message: err.message || String(err),
@@ -206,7 +238,7 @@ async function streamFromGemini({
   }
 }
 
-// --- OpenAI streaming logic ---
+// OpenAIからのストリーミング応答処理
 async function streamFromOpenAI({
   res,
   npcId,
@@ -273,6 +305,8 @@ async function streamFromOpenAI({
   }
 }
 
+// ---- Main Handler ----
+// Backendごとの関数マッピング
 const BACKENDS = {
   openai: {
     buildMessages: buildMessagesForOpenAI,
@@ -288,25 +322,32 @@ const BACKENDS = {
   },
 } as const;
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+// APIハンドラー
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse
+) {
   if (req.method !== "POST") {
     res.status(405).json({ error: "Method not allowed" });
     return;
   }
 
   const {
-    backend,
+    backend,  // "openai" | "gemini" | "ollama"
     npcIds = [],
     rounds = 1,
     context = [],
     messages: requestMessages = [],
-    ollamaModel,
     scenario,
     reasoningEfforts = {},
+    structured, // 追加: structuredフラグ
+    model,  // 追加: modelパラメータ
   } = req.body as any;
 
   if (!backend || !(backend in BACKENDS)) {
-    res.status(400).json({ error: "backend must be one of: openai, gemini, ollama" });
+    res
+      .status(400)
+      .json({ error: "backend must be one of: openai, gemini, ollama" });
     return;
   }
 
@@ -338,23 +379,136 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
         let messagesForBackend: any[];
         if (backendKey === "ollama") {
-          messagesForBackend = buildMessages({
+          messagesForBackend = buildMessagesForOllama({
             npc,
             requestMessages,
             xmlString,
           });
-        } else {
-          messagesForBackend = buildMessages({
+        } else if (backendKey === "openai") {
+          messagesForBackend = buildMessagesForOpenAI({
+            npc,
+            baseContext,
+            xmlString,
+          });
+        } else  { // geminiのケース
+          messagesForBackend = buildMessagesForGemini({
             npc,
             baseContext,
             xmlString,
           });
         }
 
+        // --- Structured/JSON mode branch ---
+        if (structured) {
+          console.log('[Structured mode] npcId=', id, 'backend=', backend);
+          const jsonInstruction = `応答は必ず有効なJSONオブジェクトのみを返してください。スキーマ:
+{"utterance":"（発話本文）","next_speaker":"（次の発話者ID、例: commander, drone_op_1）"}
+余計な説明を含めないでください。`;
+
+          const messagesWithJson = [
+            ...messagesForBackend,
+            { role: "system", content: jsonInstruction },
+          ];
+
+          try {
+            let text = "";
+
+            if (backendKey === "gemini") {
+              const { generateGeminiText } = await import("../../lib/gemini");
+              text = await generateGeminiText(messagesWithJson as any);
+            } else if (backendKey === "openai") {
+              // openai-node v4
+              const { OpenAI } = await import("openai");
+              const client = new OpenAI({ apiKey: OPENAI_API });
+              const completion = await client.chat.completions.create({
+                model: OPENAI_MODEL,
+                messages: messagesWithJson,
+                max_tokens: 1024,
+                temperature: 0.2,
+              });
+              text = completion.choices?.[0]?.message?.content ?? "";
+            } else if (backendKey === "ollama") {
+              const ollamaRes = await fetch("http://localhost:11434/api/chat", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  model: model || "llama3",
+                  messages: messagesWithJson,
+                  stream: false,
+                  options: { num_ctx: 8192 },
+                }),
+              });
+              const j = await ollamaRes.json();
+              text = j?.response ?? j?.message ?? JSON.stringify(j);
+            }
+
+            console.log(`[LLM full response] npcId=${id} model=${model} content=`, text);
+            const jsonStr = extractJson(text);
+            if (!jsonStr) {
+              sseWrite(res, {
+                type: "error",
+                agentId: id,
+                name: npc.name,
+                message: "No JSON found in LLM response",
+              });
+            } else {
+              let parsed: any;
+              try {
+                parsed = JSON.parse(jsonStr);
+              } catch (e) {
+                sseWrite(res, {
+                  type: "error",
+                  agentId: id,
+                  name: npc.name,
+                  message: "Invalid JSON from LLM",
+                });
+                continue;
+              }
+
+              const valid = validateNextTurn(parsed);
+              console.log(
+                `[LLM structured output] npcId=${id} model=${model} content=`,
+                parsed
+              );
+
+              if (!valid) {
+                sseWrite(res, {
+                  type: "error",
+                  agentId: id,
+                  name: npc.name,
+                  message: "Schema validation failed",
+                  details: validateNextTurn.errors,
+                });
+              } else {
+                sseWrite(res, {
+                  type: "structured",
+                  agentId: id,
+                  name: npc.name,
+                  utterance: parsed.utterance,
+                  next_speaker: parsed.next_speaker,
+                });
+              }
+            }
+          } catch (err: any) {
+            sseWrite(res, {
+              type: "error",
+              agentId: id,
+              name: npc.name,
+              message: err?.message || String(err),
+            });
+          }
+          continue;
+        }
+        // --- End structured branch ---
+
         try {
+          
           if (backendKey === "openai") {
             if (!OPENAI_API) {
-              sseWrite(res, { type: "error", message: "OPENAI_API_KEY not configured" });
+              sseWrite(res, {
+                type: "error",
+                message: "OPENAI_API_KEY not configured",
+              });
               continue;
             }
             await (streamFn as typeof streamFromOpenAI)({
@@ -374,7 +528,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               messages: messagesForBackend,
             });
           } else if (backendKey === "ollama") {
-            const { model, ollamaModel } = req.body as any; // ここで model を取得
             await (streamFn as typeof streamFromOllama)({
               res,
               npcId: id,
@@ -385,7 +538,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           }
         } catch (innerErr: any) {
           console.error("stream error for npc", id, innerErr);
-          sseWrite(res, { type: "error", message: innerErr?.message || String(innerErr) });
+          sseWrite(res, {
+            type: "error",
+            message: innerErr?.message || String(innerErr),
+          });
         }
       }
     }
