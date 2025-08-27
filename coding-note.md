@@ -81,4 +81,36 @@
 
 ファイルや機能の追加時も、上記フォーマットに従い役割・注意点を追記してください。
 
-_Last updated: 2025-08_20
+---
+
+## 進行中の機能追加: JSONスキーマ/AJV対応（structuredモード）
+
+- 目的: 会話LLMの返答を JSON Schema に準拠させ、utterance と next_speaker を返す構造化出力に対応。
+- スキーマ: NextTurnDirective（draft-07）。プロパティ: utterance(string), next_speaker(string, pattern: ^[a-z0-9_\-]+$)。
+
+現状の実装状況
+- 依存導入: ajv を導入済み（package.json）。
+- サーバ実装: `pages/api/multi-agent.ts`
+  - AJV で NextTurnDirective（draft-07）をコンパイルし、LLM 応答を検証。
+  - structured フラグ（リクエストの payload.structured）が true の場合、非ストリーミングで全文取得→JSON抽出→検証→SSE 送信。
+    - Gemini: `lib/gemini.ts` の `generateGeminiText` を使用。
+    - OpenAI: chat.completions（stream: false）で全文取得。
+    - Ollama: `stream: false` で全文取得。
+  - JSON 抽出: `extractJson(text)` で最初の `{ ... }` ブロックを抽出。
+  - 検証OK時のSSEペイロード: `{ type: "structured", agentId, name, utterance, next_speaker }`。
+  - 検証NG/抽出失敗時は `{ type: "error", ... }` を `sseWrite(res, obj)` で返却。
+- クライアント実装: `components/ChatPanel.tsx`
+  - API 呼び出しは `startMultiAgentStream` に統一（POST /api/multi-agent + SSE）。
+  - structured モードを使う場合は payload に `structured: true` を付与して送信。onDelta 内で `type === 'structured'` を処理。
+
+既知の注意点/制約
+- structured モードは「非ストリーミング（全文）」取得で実装（JSON整合性のため）。将来 JSONL 等でストリーム対応を検討。
+- OpenAI は JSON 以外のテキストを前後に付ける場合があるため、`extractJson` で抽出してから AJV 検証。
+- Gemini は比較的 JSON 応答が安定。`lib/gemini.ts` 側で `response.text ?? ''` ガードを追加済み。
+
+今後のTODO
+- UIで structured の ON/OFF を切り替えるトグル（例: `components/ModelSelectorPanel.tsx`）を追加し、`ChatPanel.tsx` に状態を渡す。
+- バックエンド毎の非ストリーム全文取得処理を `lib/` に切り出し、`pages/api/multi-agent.ts` から共通I/Fで呼び出す（保守性向上）。
+- JSON スキーマの外部管理（将来: シナリオからスキーマ生成）に備え、AJV の validator を差し替え可能にする。
+
+_Last updated: 2025-08-27

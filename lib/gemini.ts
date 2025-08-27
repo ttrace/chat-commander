@@ -1,22 +1,24 @@
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenAI } from "@google/genai";
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 if (!GEMINI_API_KEY) {
-  throw new Error('GEMINI_API_KEY is not set');
+  throw new Error("GEMINI_API_KEY is not set");
 }
 
 const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
 
 // 既存の同期的に全文取得する関数
-export async function generateGeminiText(messages: { role: string; content: string }[]): Promise<string> {
+export async function generateGeminiText(
+  messages: { role: string; content: string }[]
+): Promise<string> {
   const systemPart = messages
-    .filter(m => m.role === "system")
-    .map(m => m.content)
+    .filter((m) => m.role === "system")
+    .map((m) => m.content)
     .join("\n\n");
 
   const conversationPart = messages
-    .filter(m => m.role !== "system")
-    .map(m => {
+    .filter((m) => m.role !== "system")
+    .map((m) => {
       const roleLabel = m.role === "user" ? "ユーザー" : "アシスタント";
       return `${roleLabel}: ${m.content}`;
     })
@@ -29,7 +31,11 @@ export async function generateGeminiText(messages: { role: string; content: stri
       model: "gemini-2.5-flash",
       contents: prompt,
     });
-    return response.text;
+    const text = response.text ?? "";
+    if (!text) {
+      throw new Error("No text returned from Gemini");
+    }
+    return text;
   } catch (e) {
     console.error("Gemini text generation error:", e);
     throw e;
@@ -37,15 +43,17 @@ export async function generateGeminiText(messages: { role: string; content: stri
 }
 
 // 新規追加: ストリームで少しずつ文章生成を受け取るための async generator 関数
-export async function* generateGeminiStream(messages: { role: string; content: string }[]): AsyncGenerator<string> {
+export async function* generateGeminiStream(
+  messages: { role: string; content: string }[]
+): AsyncGenerator<string> {
   const systemPart = messages
-    .filter(m => m.role === "system")
-    .map(m => m.content)
+    .filter((m) => m.role === "system")
+    .map((m) => m.content)
     .join("\n\n");
 
   const conversationPart = messages
-    .filter(m => m.role !== "system")
-    .map(m => {
+    .filter((m) => m.role !== "system")
+    .map((m) => {
       const roleLabel = m.role === "user" ? "ユーザー" : "アシスタント";
       return `${roleLabel}: ${m.content}`;
     })
