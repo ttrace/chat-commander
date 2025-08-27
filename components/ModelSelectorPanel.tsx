@@ -12,8 +12,8 @@ function ModelSelectorPanel({
 }: {
   open: boolean;
   onClose: () => void;
-  backend: string;
-    setBackend: Dispatch<SetStateAction<Backend>>; // Reactのセッター型に合わせる
+  backend: Backend;
+  setBackend: Dispatch<SetStateAction<Backend>>;
   ollamaModel: string;
   setOllamaModel: (model: string) => void;
 }) {
