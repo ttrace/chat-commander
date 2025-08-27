@@ -66,6 +66,7 @@ export default function ChatPanel() {
   );
   const [ollamaModel, setOllamaModel] = useState<string>("gemma3:4b");
   const [selectorOpen, setSelectorOpen] = useState(false);
+  const [highlightNpcId, setHighlightNpcId] = useState<string | null>(null);
 
   const sendMessage = async () => {
     if (!text.trim()) return;
@@ -185,8 +186,12 @@ export default function ChatPanel() {
             delta = evt.utterance;
             if (evt.next_speaker === "player") {
               who = "user";
+
+              setHighlightNpcId(null);
             } else {
               who = `npc:${evt.agentId}`;
+
+              setHighlightNpcId(evt.next_speaker);
             }
           }
           if (delta !== undefined && who) {
@@ -292,7 +297,12 @@ export default function ChatPanel() {
           <button
             key={n.id}
             onClick={() => runMultiAgent([n.id], 1)}
-            className="px-2 py-1 border rounded flex items-center gap-2"
+            className={
+
+
+              `px-2 py-1 border rounded flex items-center gap-2` +
+              (highlightNpcId === n.id ? " bg-yellow-300 border-yellow-500" : "")
+            }
           >
             <img src={n.avatar} className="w-6 h-6 rounded-full" />
             <span>{n.name}に喋らせる</span>

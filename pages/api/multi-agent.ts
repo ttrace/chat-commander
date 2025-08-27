@@ -8,6 +8,16 @@ import Ajv from "ajv";
 import { PROVIDERS, Provider } from "../../lib/providers/index";
 
 const ajv = new Ajv();
+const npcIds = NPCS.map((npc) => npc.id);
+function escapeRegex(str: string) {
+  return str.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
+}
+
+const npcPattern = `^(${npcIds.map(escapeRegex).join('|')})$`;
+
+// 例としてpatternをログで確認
+console.log("NPC ID pattern for JSON Schema:", npcPattern);
+
 const nextTurnSchema = {
   $schema: "http://json-schema.org/draft-07/schema#",
   title: "NextTurnDirective",
@@ -21,7 +31,7 @@ const nextTurnSchema = {
     next_speaker: {
       type: "string",
       description: "次の発言者のID。例: commander, drone_op_1 など",
-      pattern: "^[a-z0-9_\\-]+$",
+      pattern: npcPattern,
     },
   },
   required: ["utterance", "next_speaker"],
@@ -87,6 +97,7 @@ export default async function handler(
 
   const xmlString = loadScenarioXML(scenario || "op_damascus_suburb.xml");
   const baseContext = Array.isArray(context) ? context.slice() : [];
+  // console.log("[multi-agent] baseContext:", JSON.stringify(baseContext, null, 2));
 
   const backendKey = backend as keyof typeof PROVIDERS;
   const provider: Provider = PROVIDERS[backendKey];
@@ -97,22 +108,12 @@ export default async function handler(
         if (!npc) continue;
 
         let messagesForBackend;
-        if (backendKey === "ollama") {
-          messagesForBackend = provider.buildMessages({
-            npc,
-            requestMessages,
-            xmlString,
-          });
-        } else {
-          messagesForBackend = provider.buildMessages({
-            npc,
-            baseContext,
-            xmlString,
-          });
-        }
 
-        // console.log(
-        //           `[multi-agent sending log]\n backend=${backendKey} npcId=${id} structured=${structured} model`,);
+        messagesForBackend = provider.buildMessages({
+          npc,
+          xmlString,
+          baseContext,
+        });
 
         if (structured) {
           const jsonInstruction = `応答は必ず有効なJSONオブジェクトのみを返してください。スキーマ:
@@ -120,8 +121,8 @@ export default async function handler(
 余計な説明を含めないでください。`;
 
           const messagesWithJson = [
-            ...messagesForBackend,
             { role: "system", content: jsonInstruction },
+            ...messagesForBackend,
           ];
 
           // 例: npcループ内でメッセージ生成直後
@@ -141,10 +142,10 @@ export default async function handler(
               messages: messagesWithJson,
             });
 
-            // console.log(
-            //   `[multi-agent response] npcId=${id} backend=${backendKey} text:`,
-            //   text
-            // );
+            console.log(
+              `[multi-agent response] npcId=${id} backend=${backendKey} text:`,
+              text
+            );
 
             const jsonStr = extractJson(text);
             if (!jsonStr) {
@@ -156,8 +157,6 @@ export default async function handler(
               });
               continue;
             }
-
-            console.log(`[multi-agent extracted JSON] npcId=${id} jsonStr:`, jsonStr);
 
             let parsed;
             try {

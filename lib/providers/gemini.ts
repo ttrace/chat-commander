@@ -1,36 +1,59 @@
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenAI } from "@google/genai";
+import { COMMON_PROMPT } from "../npcs";
+import { rootTaskDispose } from "next/dist/build/swc/generated-native";
 
 // 環境変数で API キー取得
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-if (!GEMINI_API_KEY) throw new Error('GEMINI_API_KEY is not set');
+if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY is not set");
 const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
 
 // メッセージ変換
-function buildMessages({ npc, baseContext, xmlString }: {
-  npc: { id: string; persona: string; name: string },
-  baseContext: Array<{ role: string; content: string; who?: string }>,
-  xmlString: string
+function buildMessages({
+  npc,
+  baseContext,
+  xmlString,
+}: {
+  npc: { id: string; persona: string; name: string };
+  baseContext: Array<{ role: string; content: string; who?: string }>;
+  xmlString: string;
 }) {
-  const filteredContext = baseContext.filter(
-    (m) => m.role === "user" || m.who === `npc:${npc.id}`
-  );
-  const systemContent = `${xmlString}\n${npc.persona}`;
+  // const filteredContext = baseContext.filter(
+  //   (m) => m.role === "user" || m.who === `npc:${npc.id}`
+  // );
+
+  // COMMON_PROMPT と npc.persona, xmlString を繋ぐ
+  const systemContent = `${COMMON_PROMPT}\n${npc.persona}\n\n${xmlString}`;
+
   return [
-    { role: "system", content: systemContent },
-    ...filteredContext.map((m) => ({
+    // { role: "system", content: systemContent },
+    {role: "system", content: COMMON_PROMPT},
+    {role: "system", content: npc.persona },
+    { role: "system", content: xmlString },
+    ...baseContext.map((m) => ({
       role: m.role === "user" ? "user" : "assistant",
+      who: m.who,
       content: m.content,
     })),
   ];
 }
 
 // 非ストリーミング（構造化/structured用）
-async function callSync({ messages }: { messages: { role: string; content: string }[] }) {
-  const systemPart = messages.filter(m => m.role === "system").map(m => m.content).join("\n\n");
-  const conversationPart = messages.filter(m => m.role !== "system").map(m => {
-    const roleLabel = m.role === "user" ? "ユーザー" : "アシスタント";
-    return `${roleLabel}: ${m.content}`;
-  }).join("\n\n");
+async function callSync({
+  messages,
+}: {
+  messages: { role: string; content: string }[];
+}) {
+  const systemPart = messages
+    .filter((m) => m.role === "system")
+    .map((m) => m.content)
+    .join("\n\n");
+  const conversationPart = messages
+    .filter((m) => m.role !== "system")
+    .map((m) => {
+      const roleLabel = m.role === "user" ? "ユーザー" : "アシスタント";
+      return `${roleLabel}: ${m.content}`;
+    })
+    .join("\n\n");
   const prompt = [systemPart, conversationPart].filter(Boolean).join("\n\n");
   const response = await ai.models.generateContent({
     model: "gemini-2.5-flash",
@@ -42,12 +65,23 @@ async function callSync({ messages }: { messages: { role: string; content: strin
 }
 
 // ストリーミング
-async function* callStream({ messages }: { messages: { role: string; content: string }[] }) {
-  const systemPart = messages.filter(m => m.role === "system").map(m => m.content).join("\n\n");
-  const conversationPart = messages.filter(m => m.role !== "system").map(m => {
-    const roleLabel = m.role === "user" ? "ユーザー" : "アシスタント";
-    return `${roleLabel}: ${m.content}`;
-  }).join("\n\n");
+
+async function* callStream({
+  messages,
+}: {
+  messages: { role: string; content: string }[];
+}) {
+  const systemPart = messages
+    .filter((m) => m.role === "system")
+    .map((m) => m.content)
+    .join("\n\n");
+  const conversationPart = messages
+    .filter((m) => m.role !== "system")
+    .map((m) => {
+      const roleLabel = m.role === "user" ? "ユーザー" : "アシスタント";
+      return `${roleLabel}: ${m.content}`;
+    })
+    .join("\n\n");
   const prompt = [systemPart, conversationPart].filter(Boolean).join("\n\n");
   const responseStream = await ai.models.generateContentStream({
     model: "gemini-2.5-flash",
