@@ -4,7 +4,6 @@ import ModelSelectorPanel from "./ModelSelectorPanel";
 
 type Message = { who: string; text: string };
 
-// New function to use POST+SSE (see user suggestion)
 async function startMultiAgentStream(
   payload: any,
   onDelta: (obj: any) => void,
@@ -31,7 +30,6 @@ async function startMultiAgentStream(
     for (const part of parts) {
       const line = part.trim();
       if (!line) continue;
-      // server は "data: JSON\n\n" を書いている想定
       const m = line.match(/^data: (.*)$/s);
       if (!m) continue;
       try {
@@ -53,7 +51,6 @@ export default function ChatPanel() {
   const [messages, setMessages] = useState<Message[]>([
     {
       who: "system",
-
       text: "シリア暫定政府から、テロリストの目標がダマスカス市内のモスクであると伝えられた。想定される死者数は400人。夕礼拝で避難も難しい。英国の治安維持部隊が監視しているテロリストを排除してほしい、という要請があった。",
     },
   ]);
@@ -69,6 +66,24 @@ export default function ChatPanel() {
   );
   const [ollamaModel, setOllamaModel] = useState<string>("gemma3:4b");
   const [selectorOpen, setSelectorOpen] = useState(false);
+  const [highlightNpcId, setHighlightNpcId] = useState<string | null>(null);
+
+  // 入力欄フォーカス状態管理追加
+  const [isInputFocused, setIsInputFocused] = useState(false);
+  useEffect(() => {
+    function globalKeyDown(e: KeyboardEvent) {
+      if (isInputFocused) return;
+      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+        if (highlightNpcId) {
+          runMultiAgent([highlightNpcId], 1);
+          setHighlightNpcId(null);
+        }
+      }
+    }
+    window.addEventListener('keydown', globalKeyDown as any);
+    return () => window.removeEventListener('keydown', globalKeyDown as any);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isInputFocused, highlightNpcId]);
 
   const sendMessage = async () => {
     if (!text.trim()) return;
@@ -106,7 +121,6 @@ export default function ChatPanel() {
   };
 
   async function runMultiAgent(selectedNpcIds: string[], rounds = 1) {
-    // console.log('[runMultiAgent] called, ollamaModel=', ollamaModel);
     setMessages((prev) => {
       const toAdd = selectedNpcIds
         .map((id) => {
@@ -141,70 +155,6 @@ export default function ChatPanel() {
     });
 
     setIsLoading(true);
-
-    if (backend === "gemini") {
-      const params = new URLSearchParams({
-        npcIds: selectedNpcIds.join(","),
-        rounds: String(rounds),
-        backend,
-        model: backend === "ollama" ? ollamaModel : "",
-        context: encodeURIComponent(JSON.stringify(messagesArray)),
-      });
-
-      await startMultiAgentStream(
-        {
-          npcIds: selectedNpcIds,
-          rounds: rounds,
-          backend: backend,
-          model: "",
-          context: messagesArray,
-        },
-        (evt) => {
-          if (evt.error) {
-            setMessages((prev) => [
-              ...prev,
-              { who: "system", text: `エラー: ${evt.error}` },
-            ]);
-            setIsLoading(false);
-            return;
-          }
-          if (evt.done || evt.type === "done") {
-            setIsLoading(false);
-            return;
-          }
-          if (evt.delta && evt.npcId) {
-            const delta = evt.delta;
-            const who = `npc:${evt.npcId}`;
-            setMessages((prev) => {
-              const idx = prev.map((m) => m.who).lastIndexOf(who);
-              if (idx >= 0 && idx === prev.length - 1) {
-                const copy = [...prev];
-                copy[idx] = {
-                  ...copy[idx],
-                  text: copy[idx].text + delta,
-                };
-                return copy;
-              }
-              return [...prev, { who, text: delta }];
-            });
-          }
-        },
-        () => {
-          setIsLoading(false);
-        },
-        (err) => {
-          setMessages((prev) => [
-            ...prev,
-            { who: "system", text: "通信でエラーが発生しました。" },
-          ]);
-          setIsLoading(false);
-        }
-      );
-
-      return;
-    }
-
-    // For other backends, use startMultiAgentStream (POST/SSE)
     try {
       await startMultiAgentStream(
         {
@@ -212,16 +162,20 @@ export default function ChatPanel() {
           rounds,
           context: messagesArray,
           backend,
-          model: backend === "ollama" ? ollamaModel : undefined,
+          model:
+            backend === "ollama"
+              ? ollamaModel
+              : backend === "gemini"
+              ? "gemini-2.5-flash"
+              : undefined,
+          structured: true,
         },
         (evt) => {
           if (evt.error) {
             setMessages((prev) => [
               ...prev,
-
               { who: "system", text: `エラー: ${evt.error}` },
             ]);
-
             setIsLoading(false);
             return;
           }
@@ -241,6 +195,19 @@ export default function ChatPanel() {
           ) {
             delta = evt.message.content;
             who = "assistant";
+          } else if (
+            evt.type === "structured" &&
+            evt.utterance != null &&
+            evt.next_speaker
+          ) {
+            delta = evt.utterance;
+            if (evt.next_speaker === "player") {
+              who = "user";
+              setHighlightNpcId(null);
+            } else {
+              who = `npc:${evt.agentId}`;
+              setHighlightNpcId(evt.next_speaker);
+            }
           }
           if (delta !== undefined && who) {
             setMessages((prev) => {
@@ -259,6 +226,13 @@ export default function ChatPanel() {
         },
         () => {
           setIsLoading(false);
+        },
+        (err) => {
+          setMessages((prev) => [
+            ...prev,
+            { who: "system", text: "通信でエラーが発生しました。" },
+          ]);
+          setIsLoading(false);
         }
       );
     } catch (err) {
@@ -266,7 +240,6 @@ export default function ChatPanel() {
         ...prev,
         { who: "system", text: "通信でエラーが発生しました。" },
       ]);
-
       setIsLoading(false);
     }
   }
@@ -321,6 +294,8 @@ export default function ChatPanel() {
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={onKeyDown}
+          onFocus={() => setIsInputFocused(true)}
+          onBlur={() => setIsInputFocused(false)}
           onCompositionStart={onCompositionStart}
           onCompositionEnd={onCompositionEnd}
           className="flex-1 border rounded px-3 py-2"
@@ -338,8 +313,16 @@ export default function ChatPanel() {
         {NPCS.map((n) => (
           <button
             key={n.id}
-            onClick={() => runMultiAgent([n.id], 1)}
-            className="px-2 py-1 border rounded flex items-center gap-2"
+            onClick={() => {
+              runMultiAgent([n.id], 1);
+              setHighlightNpcId(null);
+            }}
+            className={
+              `px-2 py-1 border rounded flex items-center gap-2` +
+              (highlightNpcId === n.id
+                ? " bg-yellow-300 border-yellow-500 next-speaker"
+                : "")
+            }
           >
             <img src={n.avatar} className="w-6 h-6 rounded-full" />
             <span>{n.name}に喋らせる</span>
@@ -366,3 +349,4 @@ export default function ChatPanel() {
     </div>
   );
 }
+

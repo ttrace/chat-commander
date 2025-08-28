@@ -18,11 +18,26 @@
 
 - `components/ModelSelectorPanel.tsx`
   LLMの選択UI。
-### バックエンド(API)
 
+### プロバイダ集約とmulti-agent API
+
+- `lib/providers/`
+  各種LLMプロバイダの実装とインターフェース集約。現状はGemini APIのみ実装。
+  - `lib/providers/gemini.ts`
+    Gemini APIとの通信を担当。メッセージ構築(buildMessages)、同期呼び出し(callSync)、およびストリーミング呼び出し(callStream)を提供。
+  - `lib/providers/index.ts`
+    利用可能なプロバイダをIDで管理し、APIから選択可能にしている。
 - `pages/api/multi-agent.ts`  
-  各種LLMプロバイダー（OpenAI, Ollamaなど）へのプロキシAPI。
-  クライアントからのリクエストを受信し、指定プロバイダへ問い合わせる。ストリームレスポンスは`sseWrite(res, obj)`関数（`data: ...\n\n`形式）で統一的に出力する。
+  複数NPCの会話シミュレーションを行うストリーミングAPI。
+  - リクエストでbackend（`gemini`など）とNPC ID群を受け取る。
+  - 対応プロバイダを選択し、ビルドされたメッセージ群を用いてストリーミングレスポンスを取得。
+  - SSE形式でクライアントへ逐次応答を送信。utterance（発言）と構造化された次発話者指定のJSON行を検出し分けて送信。
+  - JSON Schemaによる検証ロジックも用意されているが、現在はストリーミング処理に注力。
+
+- `components/ChatPanel.tsx`
+  APIのストリームレスポンス（SSE）を受信し、`data: ...`形式のJSONラインを解析して画面に逐次反映。
+
+### バックエンド(API)
 - `pages/api/chat.ts`  
   別エンドポイントの（詳細未記載）API。
 - `pages/api/xml-to-5w1h.ts`  
@@ -63,6 +78,7 @@
 
 - `pages/_app.tsx`
   Next.jsトップラップファイル。
+
 ### ドキュメント
 
 - `README.md`, `README_RUN.md`  
@@ -81,4 +97,53 @@
 
 ファイルや機能の追加時も、上記フォーマットに従い役割・注意点を追記してください。
 
-_Last updated: 2025-08_20
+---
+
+## 進行中の機能追加: JSONスキーマ/AJV対応（structuredモード）
+
+- 目的: 会話LLMの返答を JSON Schema に準拠させ、utterance と next_speaker を返す構造化出力に対応。
+- スキーマ: NextTurnDirective（draft-07）。プロパティ: utterance(string), next_speaker(string, pattern: ^[a-z0-9_\-]+$)。
+
+現状の実装状況
+- 依存導入: ajv を導入済み（package.json）。
+- サーバ実装: `pages/api/multi-agent.ts`
+  - AJV で NextTurnDirective（draft-07）をコンパイルし、LLM 応答を検証。
+  - structured フラグ（リクエストの payload.structured）が true の場合、非ストリーミングで全文取得→JSON抽出→検証→SSE 送信。
+    - Gemini: `lib/gemini.ts` の `generateGeminiText` を使用。
+    - OpenAI: chat.completions（stream: false）で全文取得。
+    - Ollama: `stream: false` で全文取得。
+  - JSON 抽出: `extractJson(text)` で最初の `{ ... }` ブロックを抽出。
+  - 検証OK時のSSEペイロード: `{ type: "structured", agentId, name, utterance, next_speaker }`。
+  - 検証NG/抽出失敗時は `{ type: "error", ... }` を `sseWrite(res, obj)` で返却。
+- クライアント実装: `components/ChatPanel.tsx`
+  - API 呼び出しは `startMultiAgentStream` に統一（POST /api/multi-agent + SSE）。
+  - structured モードを使う場合は payload に `structured: true` を付与して送信。onDelta 内で `type === 'structured'` を処理。
+
+既知の注意点/制約
+- structured モードは「非ストリーミング（全文）」取得で実装（JSON整合性のため）。将来 JSONL 等でストリーム対応を検討。
+- OpenAI は JSON 以外のテキストを前後に付ける場合があるため、`extractJson` で抽出してから AJV 検証。
+- Gemini は比較的 JSON 応答が安定。`lib/gemini.ts` 側で `response.text ?? ''` ガードを追加済み。
+
+今後のTODO
+- 全ての通信をJSONスキーマを使うstructuredに変更する。
++
++## クライアント実装
++
++- `components/ChatPanel.tsx`
++  - メインチャットUI・ロジックを担当。
++  - APIとの対話は`startMultiAgentStream`関数で一元管理。
++  - `/api/multi-agent`にJSON形式のリクエストをPOSTし、SSE（Server-Sent Events）によるストリーム応答を受信。
++  - 受信したストリームデータは`\n\n`で分割し、`data: ...`のJSONをパース後に`onDelta`で逐次反映、`type: 'done'`で会話終了を通知。
++  - 日本語IME入力対応のため、`composing`イベント部分のコードは変更禁止。
++
++## プロバイダ集約
++
++- `lib/providers/index.ts`
++  - 複数LLMプロバイダ（Gemini、OpenAIなど）を`Provider`インターフェースで抽象化し集約。
++  - `Provider`は`buildMessages`によるプロンプト組み立て、`callSync`（非ストリームAPI呼び出し）、`callStream`（ストリームAPI呼び出し）を持つ。
++  - `lib/providers/gemini.ts`ではNPC・シナリオ情報を元にプロンプトを構築する`buildMessages`を実装。
+- バックエンド毎の非ストリーム全文取得処理を `lib/` に切り出し、`pages/api/multi-agent.ts` から共通I/Fで呼び出す（保守性向上）。
+- JSON スキーマの外部管理（将来: シナリオからスキーマ生成）に備え、AJV の validator を差し替え可能にする。
+
+_Last updated: 2025-08-27
+
