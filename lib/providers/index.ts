@@ -1,6 +1,6 @@
 import gemini from './gemini';
 import openai from './openai';
-// import ollama from './ollama';
+import ollama from './ollama';
 
 export interface Provider {
   id: string;
@@ -12,5 +12,5 @@ export interface Provider {
 export const PROVIDERS: Record<string, Provider> = {
   gemini,
   openai,
-//   ollama,
+  ollama,
 };

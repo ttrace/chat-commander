@@ -1,6 +1,22 @@
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, Type } from "@google/genai";
 import { COMMON_PROMPT } from "../npcs";
 import { rootTaskDispose } from "next/dist/build/swc/generated-native";
+
+const schema = {
+  type: Type.OBJECT,
+  properties: {
+    utterance: {
+      type: Type.STRING,
+      description: "今回の発言（日本語の自然文）。会議に出す台詞そのもの。",
+    },
+    next_speaker: {
+      type: Type.STRING,
+      description: "次の発言者のID。例: commander, drone_op_1 など",
+      pattern: "^(commander|safety|drone|local_operator|foreign|evac)$",
+    },
+  },
+  required: ["utterance", "next_speaker"],
+};
 
 // 環境変数で API キー取得
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
@@ -17,17 +33,12 @@ function buildMessages({
   baseContext: Array<{ role: string; content: string; who?: string }>;
   xmlString: string;
 }) {
-  // const filteredContext = baseContext.filter(
-  //   (m) => m.role === "user" || m.who === `npc:${npc.id}`
-  // );
-
-  // COMMON_PROMPT と npc.persona, xmlString を繋ぐ
   const systemContent = `${COMMON_PROMPT}\n${npc.persona}\n\n${xmlString}`;
 
   return [
     // { role: "system", content: systemContent },
-    {role: "system", content: COMMON_PROMPT},
-    {role: "system", content: npc.persona },
+    { role: "system", content: COMMON_PROMPT },
+    { role: "system", content: npc.persona },
     { role: "system", content: xmlString },
     ...baseContext.map((m) => ({
       role: m.role === "user" ? "user" : "assistant",
@@ -83,10 +94,11 @@ async function* callStream({
     })
     .join("\n\n");
   const prompt = [systemPart, conversationPart].filter(Boolean).join("\n\n");
+  // console.log(`[gemini] callStream prompt=`, prompt);
   const responseStream = await ai.models.generateContentStream({
     model: "gemini-2.5-flash",
     contents: prompt,
-    // config: { maxOutputTokens: 2048 },
+    config: { responseMimeType: "application/json", responseSchema: schema },
   });
   for await (const chunk of responseStream) {
     const text = (chunk as any).text ?? "";

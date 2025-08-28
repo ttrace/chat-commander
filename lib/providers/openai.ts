@@ -1,6 +1,27 @@
 import OpenAI from "openai";
 import { COMMON_PROMPT } from "../npcs";
 
+const schema = {
+    "name": "NextTurnDirective",
+    "strict": true,
+    "schema": {
+      "type": "object",
+      "properties": {
+        "utterance": {
+          "type": "string",
+          "description": "今回の発言（日本語の自然文）。会議に出す台詞そのもの。",
+        },
+        "next_speaker": {
+          "type": "string",
+          "description": "次の発言者のID。例: commander, drone_op_1 など",
+          "pattern": "^(commander|safety|drone|local_operator|foreign|evac)$",
+        },
+      },
+      "required": ["utterance", "next_speaker"],
+      "additionalProperties": false,
+    }
+  };
+
 // 環境変数で API キー取得
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 if (!OPENAI_API_KEY) throw new Error("OPENAI_API_KEY is not set");
@@ -66,6 +87,7 @@ async function* callStream({
   const response = await openai.chat.completions.create({
     model: model,
     messages: messages,
+    response_format: { type: "json_schema", json_schema: schema as any },
     reasoning_effort: "low",
     stream: true,
   });

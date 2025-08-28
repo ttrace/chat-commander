@@ -248,7 +248,7 @@ export default async function handler(
             
             let tailingText = "";
             if (nextSpeakerMatch && backendKey === "gemini") {
-              tailingText = text.replace(/",\s*next_speaker\s*.*/g, "");
+              tailingText = text.replace(/,[\s\S]*next_speaker[\s\S]*.*/g, "");
               // console.log("Geminiの時の末尾削り", text, tailingText);
             }
 
