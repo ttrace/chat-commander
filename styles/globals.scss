@@ -1,4 +1,4 @@
-@import './_base.scss';
+@import "./_base.scss";
 
 // Project-level custom styles
 .app-container {
@@ -11,4 +11,29 @@
 
 .chat-input {
   @apply flex-1 border rounded px-3 py-2;
+}
+
+.next-speaker {
+  position: relative; // バッジのためにrelative指定
+
+  &::after {
+    content: "⌘↩︎";
+    position: absolute;
+    right: -0.25rem;
+    bottom: -0.55rem;
+    background: rgb(18, 69, 164);
+    color: #fff;
+    font-size: 0.35em;
+    padding: 0.2em 0.45em;
+    border-radius: 0.5em;
+    pointer-events: none;
+    opacity: 0.85;
+    font-family: system-ui, sans-serif;
+    letter-spacing: -0.1em;
+    z-index: 1;
+    // WindowsならCtrlマークを表示
+    @media not all and (min--moz-device-pixel-ratio: 0) {
+      content: "Ctrl↩︎";
+    }
+  }
 }

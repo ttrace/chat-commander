@@ -68,6 +68,23 @@ export default function ChatPanel() {
   const [selectorOpen, setSelectorOpen] = useState(false);
   const [highlightNpcId, setHighlightNpcId] = useState<string | null>(null);
 
+  // 入力欄フォーカス状態管理追加
+  const [isInputFocused, setIsInputFocused] = useState(false);
+  useEffect(() => {
+    function globalKeyDown(e: KeyboardEvent) {
+      if (isInputFocused) return;
+      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+        if (highlightNpcId) {
+          runMultiAgent([highlightNpcId], 1);
+          setHighlightNpcId(null);
+        }
+      }
+    }
+    window.addEventListener('keydown', globalKeyDown as any);
+    return () => window.removeEventListener('keydown', globalKeyDown as any);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isInputFocused, highlightNpcId]);
+
   const sendMessage = async () => {
     if (!text.trim()) return;
     const userMsg: Message = { who: "user", text };
@@ -186,11 +203,9 @@ export default function ChatPanel() {
             delta = evt.utterance;
             if (evt.next_speaker === "player") {
               who = "user";
-
               setHighlightNpcId(null);
             } else {
               who = `npc:${evt.agentId}`;
-
               setHighlightNpcId(evt.next_speaker);
             }
           }
@@ -279,6 +294,8 @@ export default function ChatPanel() {
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={onKeyDown}
+          onFocus={() => setIsInputFocused(true)}
+          onBlur={() => setIsInputFocused(false)}
           onCompositionStart={onCompositionStart}
           onCompositionEnd={onCompositionEnd}
           className="flex-1 border rounded px-3 py-2"
@@ -298,12 +315,12 @@ export default function ChatPanel() {
             key={n.id}
             onClick={() => {
               runMultiAgent([n.id], 1);
-              setHighlightNpcId(null); // ここでハイライト解除}
+              setHighlightNpcId(null);
             }}
             className={
               `px-2 py-1 border rounded flex items-center gap-2` +
               (highlightNpcId === n.id
-                ? " bg-yellow-300 border-yellow-500"
+                ? " bg-yellow-300 border-yellow-500 next-speaker"
                 : "")
             }
           >
@@ -332,3 +349,4 @@ export default function ChatPanel() {
     </div>
   );
 }
+
