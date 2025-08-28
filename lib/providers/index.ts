@@ -1,5 +1,5 @@
 import gemini from './gemini';
-// import openai from './openai';
+import openai from './openai';
 // import ollama from './ollama';
 
 export interface Provider {
@@ -11,6 +11,6 @@ export interface Provider {
 
 export const PROVIDERS: Record<string, Provider> = {
   gemini,
-//   openai,
+  openai,
 //   ollama,
 };
