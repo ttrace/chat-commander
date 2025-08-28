@@ -180,7 +180,7 @@ export default function ChatPanel() {
             who = "assistant";
           } else if (
             evt.type === "structured" &&
-            evt.utterance &&
+            evt.utterance != null &&
             evt.next_speaker
           ) {
             delta = evt.utterance;
@@ -296,12 +296,15 @@ export default function ChatPanel() {
         {NPCS.map((n) => (
           <button
             key={n.id}
-            onClick={() => runMultiAgent([n.id], 1)}
+            onClick={() => {
+              runMultiAgent([n.id], 1);
+              setHighlightNpcId(null); // ここでハイライト解除}
+            }}
             className={
-
-
               `px-2 py-1 border rounded flex items-center gap-2` +
-              (highlightNpcId === n.id ? " bg-yellow-300 border-yellow-500" : "")
+              (highlightNpcId === n.id
+                ? " bg-yellow-300 border-yellow-500"
+                : "")
             }
           >
             <img src={n.avatar} className="w-6 h-6 rounded-full" />

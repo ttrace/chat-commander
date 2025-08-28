@@ -10,10 +10,10 @@ import { PROVIDERS, Provider } from "../../lib/providers/index";
 const ajv = new Ajv();
 const npcIds = NPCS.map((npc) => npc.id);
 function escapeRegex(str: string) {
-  return str.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
+  return str.replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&");
 }
 
-const npcPattern = `^(${npcIds.map(escapeRegex).join('|')})$`;
+const npcPattern = `^(${npcIds.map(escapeRegex).join("|")})$`;
 
 // 例としてpatternをログで確認
 console.log("NPC ID pattern for JSON Schema:", npcPattern);
@@ -97,7 +97,6 @@ export default async function handler(
 
   const xmlString = loadScenarioXML(scenario || "op_damascus_suburb.xml");
   const baseContext = Array.isArray(context) ? context.slice() : [];
-  // console.log("[multi-agent] baseContext:", JSON.stringify(baseContext, null, 2));
 
   const backendKey = backend as keyof typeof PROVIDERS;
   const provider: Provider = PROVIDERS[backendKey];
@@ -115,90 +114,93 @@ export default async function handler(
           baseContext,
         });
 
-        if (structured) {
-          const jsonInstruction = `応答は必ず有効なJSONオブジェクトのみを返してください。スキーマ:
-{"utterance":"発話本文","next_speaker":"次の発話者ID（例: commander, drone_op_1）"}
-余計な説明を含めないでください。`;
+        // if (structured) {
+        const jsonInstruction = `出力は必ずJSONLで、完全なJSON形式で返してください。スキーマ:\n${JSON.stringify(
+          nextTurnSchema,
+          null,
+          2
+        )}\n
+余計な説明やコードブロックは含めないでください。`;
 
-          const messagesWithJson = [
-            { role: "system", content: jsonInstruction },
-            ...messagesForBackend,
-          ];
+        const messagesWithJson = [
+          { role: "system", content: jsonInstruction },
+          ...messagesForBackend,
+        ];
 
-          // 例: npcループ内でメッセージ生成直後
-          console.log(
-            `[multi-agent sending] npcId=${id} backend=${backendKey} messagesWithJson:`,
-            JSON.stringify(messagesWithJson, null, 2)
-          );
+        // 例: npcループ内でメッセージ生成直後
+        console.log(
+          `[multi-agent sending] npcId=${id} backend=${backendKey} messagesWithJson:`,
+          // JSON.stringify(messagesWithJson, null, 2)
+        );
 
-          try {
-            if (!provider.callSync) {
-              throw new Error(
-                `Provider ${backendKey} does not support sync call for structured mode`
-              );
-            }
-            const text = await provider.callSync({
-              model,
-              messages: messagesWithJson,
-            });
+        // try {
+        //   if (!provider.callSync) {
+        //     throw new Error(
+        //       `Provider ${backendKey} does not support sync call for structured mode`
+        //     );
+        //   }
+        //   const text = await provider.callSync({
+        //     model,
+        //     messages: messagesWithJson,
+        //   });
 
-            console.log(
-              `[multi-agent response] npcId=${id} backend=${backendKey} text:`,
-              text
-            );
+        //   console.log(
+        //     `[multi-agent response] npcId=${id} backend=${backendKey} text:`,
+        //     text
+        //   );
 
-            const jsonStr = extractJson(text);
-            if (!jsonStr) {
-              sseWrite(res, {
-                type: "error",
-                agentId: id,
-                name: npc.name,
-                message: "No JSON found in LLM response",
-              });
-              continue;
-            }
+        //   const jsonStr = extractJson(text);
+        //   if (!jsonStr) {
+        //     sseWrite(res, {
+        //       type: "error",
+        //       agentId: id,
+        //       name: npc.name,
+        //       message: "No JSON found in LLM response",
+        //     });
+        //     continue;
+        //   }
 
-            let parsed;
-            try {
-              parsed = JSON.parse(jsonStr);
-            } catch (e) {
-              sseWrite(res, {
-                type: "error",
-                agentId: id,
-                name: npc.name,
-                message: "Invalid JSON from LLM",
-              });
-              continue;
-            }
+        //   let parsed;
+        //   try {
+        //     parsed = JSON.parse(jsonStr);
+        //   } catch (e) {
+        //     sseWrite(res, {
+        //       type: "error",
+        //       agentId: id,
+        //       name: npc.name,
+        //       message: "Invalid JSON from LLM",
+        //     });
+        //     continue;
+        //   }
 
-            if (!validateNextTurn(parsed)) {
-              sseWrite(res, {
-                type: "error",
-                agentId: id,
-                name: npc.name,
-                message: "Schema validation failed",
-                details: validateNextTurn.errors,
-              });
-            } else {
-              sseWrite(res, {
-                type: "structured",
-                agentId: id,
-                name: npc.name,
-                utterance: parsed.utterance,
-                next_speaker: parsed.next_speaker,
-              });
-            }
-          } catch (err: any) {
-            sseWrite(res, {
-              type: "error",
-              agentId: id,
-              name: npc.name,
-              message: err.message || String(err),
-            });
-          }
+        //   if (!validateNextTurn(parsed)) {
+        //     sseWrite(res, {
+        //       type: "error",
+        //       agentId: id,
+        //       name: npc.name,
+        //       message: "Schema validation failed",
+        //       details: validateNextTurn.errors,
+        //     });
+        //   } else {
+        //     sseWrite(res, {
+        //       type: "structured",
+        //       agentId: id,
+        //       name: npc.name,
+        //       utterance: parsed.utterance,
+        //       next_speaker: parsed.next_speaker,
+        //     });
+        //   }
+        // } catch (err: any) {
+        //   sseWrite(res, {
+        //     type: "error",
+        //     agentId: id,
+        //     name: npc.name,
+        //     message: err.message || String(err),
+        //   });
+        // }
 
-          continue;
-        }
+        //   continue;
+        // }
 
         if (!provider.callStream) {
           sseWrite(res, {
@@ -209,24 +211,70 @@ export default async function handler(
         }
 
         try {
+          let buffer = "";
+          let utteranceBuffer = "";
+          let previousSentBuffer = ""; // 前回送信したutteranceを保存
+
+          // 受信チャンク処理のループ
           for await (const chunk of provider.callStream({
             model,
-            messages: messagesForBackend,
+            messages: messagesWithJson,
           })) {
+            console.log(`[multi-agent stream] npcId=${id} chunk:`, chunk);
+            let text: string;
             if (typeof chunk === "string") {
-              sseWrite(res, {
-                type: "utterance",
-                agentId: id,
-                name: npc.name,
-                delta: chunk,
-              });
-            } else if (chunk.text) {
-              sseWrite(res, {
-                type: "utterance",
-                agentId: id,
-                name: npc.name,
-                delta: chunk.text,
-              });
+              text = chunk;
+            } else if (chunk && typeof chunk === "object" && "text" in chunk) {
+              text = chunk.text;
+            } else {
+              text = ""; // または適切なデフォルト値
+            }
+
+            // Markdownコードブロック除去
+            text = text.replace(/```json\s*/, "").replace(/```/g, "");
+
+            buffer += text;
+
+            // utterance フィールドの文字列を抽出する正規表現 （部分的な文字列をリアルタイムに蓄積）
+            const utteranceMatch = buffer.match(/"utterance"\s*:\s*"([^"]*)"/);
+            if (utteranceMatch) {
+              // 新しく取り込んだutteranceの文字列をバッファに追加
+              const currentUtterance = utteranceMatch[1];
+              if (previousSentBuffer !== currentUtterance) {
+                previousSentBuffer = currentUtterance;
+                // クライアントへ逐次送信（例）
+                sseWrite(res, {
+                  type: "utterance",
+                  agentId: id,
+                  name: npc.name,
+                  delta: currentUtterance,
+                });
+              }
+            }
+
+            // 完全JSONの検出（末尾にnext_speakerがあるJSON）
+            const jsonMatch = buffer.match(
+              /\{[\s\S]*"next_speaker"\s*:\s*"([^"]*)"\s*\}/
+            );
+            if (jsonMatch) {
+              try {
+                const fullJsonStr = jsonMatch[0];
+                const parsed = JSON.parse(fullJsonStr);
+                console.log("[multi-agent] next_speaker", parsed.next_speaker);
+
+                sseWrite(res, {
+                  type: "structured",
+                  agentId: id,
+                  name: npc.name,
+                  utterance: "",
+                  next_speaker: parsed.next_speaker,
+                });
+              } catch (e) {
+                console.error("JSON parse error:", e);
+              }
+              // バッファクリア（次のレスポンス用に）
+              buffer = "";
+              utteranceBuffer = "";
             }
           }
         } catch (err: any) {
@@ -238,7 +286,10 @@ export default async function handler(
     sseWrite(res, { type: "done" });
     res.end();
   } catch (err: any) {
-    sseWrite(res, { type: "error", message: err.message || String(err) });
+    sseWrite(res, {
+      type: "error",
+      message: err.message || String(err),
+    });
     res.end();
   }
 }
