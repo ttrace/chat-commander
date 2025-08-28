@@ -5,7 +5,7 @@ import openai from './openai';
 export interface Provider {
   id: string;
   buildMessages: (opts: any) => any[];
-  callSync?: (opts: { model?: string; messages: any[] }) => Promise<string>;
+  callSync?: (opts: { model?: string; messages: any[]; schema?: object}) => Promise<string>;
   callStream?: (opts: { model?: string; messages: any[] }) => AsyncIterable<string | { text: string }>;
 }
 

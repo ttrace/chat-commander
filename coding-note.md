@@ -125,7 +125,7 @@
 - Gemini は比較的 JSON 応答が安定。`lib/gemini.ts` 側で `response.text ?? ''` ガードを追加済み。
 
 今後のTODO
-- UIで structured の ON/OFF を切り替えるトグル（例: `components/ModelSelectorPanel.tsx`）を追加し、`ChatPanel.tsx` に状態を渡す。
+- 全ての通信をJSONスキーマを使うstructuredに変更する。
 - バックエンド毎の非ストリーム全文取得処理を `lib/` に切り出し、`pages/api/multi-agent.ts` から共通I/Fで呼び出す（保守性向上）。
 - JSON スキーマの外部管理（将来: シナリオからスキーマ生成）に備え、AJV の validator を差し替え可能にする。
 

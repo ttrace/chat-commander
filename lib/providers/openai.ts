@@ -34,15 +34,19 @@ function buildMessages({
 
 // 非ストリーミング（全文テキスト取得）
 async function callSync({
-  model = "gpt-4o-mini",
+  model = "gpt-5-mini",
   messages,
+  schema,
 }: {
   model?: string;
   messages: { role: string; content: string }[];
+  schema?: object;
 }) {
   const response = await openai.chat.completions.create({
     model: model,
     messages: messages,
+    response_format: { type: "json_schema", json_schema: schema as any },
+    reasoning_effort: "low",
     // max_tokens: 2048,
   });
   const text = response.choices[0]?.message?.content ?? "";
@@ -52,15 +56,17 @@ async function callSync({
 
 // ストリーミング（逐次テキスト取得）
 async function* callStream({
-  model = "gpt-4o-mini",
+  model = "gpt-5-mini",
   messages,
 }: {
   model?: string;
   messages: { role: string; content: string }[];
 }) {
+  console.log("[OpenAI callStream] model:", model);
   const response = await openai.chat.completions.create({
     model: model,
     messages: messages,
+    reasoning_effort: "low",
     stream: true,
   });
   for await (const part of response) {

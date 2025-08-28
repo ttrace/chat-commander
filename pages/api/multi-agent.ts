@@ -129,7 +129,7 @@ export default async function handler(
 
         // 例: npcループ内でメッセージ生成直後
         console.log(
-          `[multi-agent sending] npcId=${id} backend=${backendKey} messagesWithJson:`,
+          `[multi-agent sending] npcId=${id} backend=${backendKey} messagesWithJson:`
           // JSON.stringify(messagesWithJson, null, 2)
         );
 
@@ -220,7 +220,7 @@ export default async function handler(
             model,
             messages: messagesWithJson,
           })) {
-            console.log(`[multi-agent stream] npcId=${id} chunk:`, chunk);
+            // console.log(`[multi-agent stream] npcId=${id} chunk:`, chunk);
             let text: string;
             if (typeof chunk === "string") {
               text = chunk;
@@ -231,25 +231,50 @@ export default async function handler(
             }
 
             // Markdownコードブロック除去
-            text = text.replace(/```json\s*/, "").replace(/```/g, "");
+            text = text.replace(/```json(l)*\s*/, "").replace(/```/g, "");
 
             buffer += text;
-
+            // console.log(`[multi-agent stream] npcId=${id} text:`, buffer);
             // utterance フィールドの文字列を抽出する正規表現 （部分的な文字列をリアルタイムに蓄積）
-            const utteranceMatch = buffer.match(/"utterance"\s*:\s*"([^"]*)"/);
-            if (utteranceMatch) {
+            const utteranceMatch = buffer.match(/"utterance"\s*:\s*"([^"]*)/);
+            const nextSpeakerMatch = buffer.match(
+              /"utterance"\s*:\s*"([^"]*)"/
+            );
+
+            // if (next
+            text = text.replace(/{\n*\s*"utterance"\s*:\s*"/g, "");
+            text = text.replace(/[":{}]/g, "");
+            // console.log("[multi-agent] buffer:", buffer);
+            
+            let tailingText = "";
+            if (nextSpeakerMatch && backendKey === "gemini") {
+              tailingText = text.replace(/",\s*next_speaker\s*.*/g, "");
+              // console.log("Geminiの時の末尾削り", text, tailingText);
+            }
+
+            if (utteranceMatch && !nextSpeakerMatch) {
               // 新しく取り込んだutteranceの文字列をバッファに追加
               const currentUtterance = utteranceMatch[1];
-              if (previousSentBuffer !== currentUtterance) {
-                previousSentBuffer = currentUtterance;
-                // クライアントへ逐次送信（例）
-                sseWrite(res, {
-                  type: "utterance",
-                  agentId: id,
-                  name: npc.name,
-                  delta: currentUtterance,
-                });
-              }
+
+              previousSentBuffer = currentUtterance;
+              // クライアントへ逐次送信（例）
+              sseWrite(res, {
+                type: "utterance",
+                agentId: id,
+                name: npc.name,
+                // delta: currentUtterance,
+                delta: text,
+              });
+            }
+
+            if (tailingText !== "") {
+              sseWrite(res, {
+                type: "utterance",
+                agentId: id,
+                name: npc.name,
+                // delta: currentUtterance,
+                delta: tailingText,
+              });
             }
 
             // 完全JSONの検出（末尾にnext_speakerがあるJSON）
