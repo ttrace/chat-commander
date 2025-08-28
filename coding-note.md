@@ -126,6 +126,22 @@
 
 今後のTODO
 - 全ての通信をJSONスキーマを使うstructuredに変更する。
++
++## クライアント実装
++
++- `components/ChatPanel.tsx`
++  - メインチャットUI・ロジックを担当。
++  - APIとの対話は`startMultiAgentStream`関数で一元管理。
++  - `/api/multi-agent`にJSON形式のリクエストをPOSTし、SSE（Server-Sent Events）によるストリーム応答を受信。
++  - 受信したストリームデータは`\n\n`で分割し、`data: ...`のJSONをパース後に`onDelta`で逐次反映、`type: 'done'`で会話終了を通知。
++  - 日本語IME入力対応のため、`composing`イベント部分のコードは変更禁止。
++
++## プロバイダ集約
++
++- `lib/providers/index.ts`
++  - 複数LLMプロバイダ（Gemini、OpenAIなど）を`Provider`インターフェースで抽象化し集約。
++  - `Provider`は`buildMessages`によるプロンプト組み立て、`callSync`（非ストリームAPI呼び出し）、`callStream`（ストリームAPI呼び出し）を持つ。
++  - `lib/providers/gemini.ts`ではNPC・シナリオ情報を元にプロンプトを構築する`buildMessages`を実装。
 - バックエンド毎の非ストリーム全文取得処理を `lib/` に切り出し、`pages/api/multi-agent.ts` から共通I/Fで呼び出す（保守性向上）。
 - JSON スキーマの外部管理（将来: シナリオからスキーマ生成）に備え、AJV の validator を差し替え可能にする。
 
