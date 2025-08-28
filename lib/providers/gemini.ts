@@ -86,6 +86,7 @@ async function* callStream({
   const responseStream = await ai.models.generateContentStream({
     model: "gemini-2.5-flash",
     contents: prompt,
+    // config: { maxOutputTokens: 2048 },
   });
   for await (const chunk of responseStream) {
     const text = (chunk as any).text ?? "";

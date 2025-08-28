@@ -18,11 +18,26 @@
 
 - `components/ModelSelectorPanel.tsx`
   LLMの選択UI。
-### バックエンド(API)
 
+### プロバイダ集約とmulti-agent API
+
+- `lib/providers/`
+  各種LLMプロバイダの実装とインターフェース集約。現状はGemini APIのみ実装。
+  - `lib/providers/gemini.ts`
+    Gemini APIとの通信を担当。メッセージ構築(buildMessages)、同期呼び出し(callSync)、およびストリーミング呼び出し(callStream)を提供。
+  - `lib/providers/index.ts`
+    利用可能なプロバイダをIDで管理し、APIから選択可能にしている。
 - `pages/api/multi-agent.ts`  
-  各種LLMプロバイダー（OpenAI, Ollamaなど）へのプロキシAPI。
-  クライアントからのリクエストを受信し、指定プロバイダへ問い合わせる。ストリームレスポンスは`sseWrite(res, obj)`関数（`data: ...\n\n`形式）で統一的に出力する。
+  複数NPCの会話シミュレーションを行うストリーミングAPI。
+  - リクエストでbackend（`gemini`など）とNPC ID群を受け取る。
+  - 対応プロバイダを選択し、ビルドされたメッセージ群を用いてストリーミングレスポンスを取得。
+  - SSE形式でクライアントへ逐次応答を送信。utterance（発言）と構造化された次発話者指定のJSON行を検出し分けて送信。
+  - JSON Schemaによる検証ロジックも用意されているが、現在はストリーミング処理に注力。
+
+- `components/ChatPanel.tsx`
+  APIのストリームレスポンス（SSE）を受信し、`data: ...`形式のJSONラインを解析して画面に逐次反映。
+
+### バックエンド(API)
 - `pages/api/chat.ts`  
   別エンドポイントの（詳細未記載）API。
 - `pages/api/xml-to-5w1h.ts`  
@@ -63,6 +78,7 @@
 
 - `pages/_app.tsx`
   Next.jsトップラップファイル。
+
 ### ドキュメント
 
 - `README.md`, `README_RUN.md`  
@@ -114,3 +130,4 @@
 - JSON スキーマの外部管理（将来: シナリオからスキーマ生成）に備え、AJV の validator を差し替え可能にする。
 
 _Last updated: 2025-08-27
+
