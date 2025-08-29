@@ -12,6 +12,10 @@
 - `components/ChatPanel.tsx`  
   メインチャットUI・ロジック。エージェント選択、発言送信、返信ストリーム受信、backend種別切り替えも担当。  
   **注意**: 日本語IME対応のための`composing`と`onCompositionStart`/`onCompositionEnd`部のコードは変更禁止。
+  - APIとの対話は`startMultiAgentStream`関数で一元管理。
+  - `/api/multi-agent`にJSON形式POST+SSEでやりとり、ストリームデータの逐次反映は`onDelta`経由。
+  - 受信したストリームデータは`\n\n`で分割、`data: ...`のJSONをパースし`onDelta`に渡す。`type: 'done'`で完了通知。
+  - **composingイベント部分は変更禁止。**
 
 - `components/MainPanel.tsx`
   サブUIパネル。本体チャットやモデル切替など、複数のパネルを管理。
@@ -19,66 +23,57 @@
 - `components/ModelSelectorPanel.tsx`
   LLMの選択UI。
 
-### プロバイダ集約とmulti-agent API
-
+### プロバイダ集約
 - `lib/providers/`
-  各種LLMプロバイダの実装とインターフェース集約。現状はGemini APIのみ実装。
-  - `lib/providers/gemini.ts`
-    Gemini APIとの通信を担当。メッセージ構築(buildMessages)、同期呼び出し(callSync)、およびストリーミング呼び出し(callStream)を提供。
-  - `lib/providers/index.ts`
-    利用可能なプロバイダをIDで管理し、APIから選択可能にしている。
+  各種LLMプロバイダの実装とインターフェース集約。OpenAI、Gemini、Ollama対応。
+- `lib/providers/index.ts`
+  - 複数LLMプロバイダを`Provider` I/Fで抽象化・集約。
+  - `buildMessages`: プロンプト生成、`callSync`: 非ストリーム呼び出し、`callStream`: ストリーム呼び出しを持つ。
+- `lib/providers/gemini.ts`
+  Gemini API対応。NPC・シナリオ情報を元に`buildMessages`等を実装。
+
+### multi-agent API/バックエンド
 - `pages/api/multi-agent.ts`  
-  複数NPCの会話シミュレーションを行うストリーミングAPI。
-  - リクエストでbackend（`gemini`など）とNPC ID群を受け取る。
-  - 対応プロバイダを選択し、ビルドされたメッセージ群を用いてストリーミングレスポンスを取得。
-  - SSE形式でクライアントへ逐次応答を送信。utterance（発言）と構造化された次発話者指定のJSON行を検出し分けて送信。
-  - JSON Schemaによる検証ロジックも用意されているが、現在はストリーミング処理に注力。
-
-- `components/ChatPanel.tsx`
-  APIのストリームレスポンス（SSE）を受信し、`data: ...`形式のJSONラインを解析して画面に逐次反映。
-
-### バックエンド(API)
+  複数NPCの会話シミュレーション用SSEストリームAPI
+  - リクエストでbackend（`gemini`等）、NPC ID群、structuredフラグ等を受け取る。
+  - Provider呼び出しやストリーム応答、structured対応（全文取得＆スキーマ検証）。
+  - SSE形式でクライアントへ逐次応答送信。`utterance`や次発話者のJSONなどを分離して送る。
+  - JSON Schema（AJV）による検証対応：structured:true時は全文取得→JSON抽出（`extractJson`）→AJV検証→SSE送信。エラー時は`type: 'error'`で返却。
+  - ストリーム送信には`sseWrite`関数を必ず利用。
 - `pages/api/chat.ts`  
-  別エンドポイントの（詳細未記載）API。
+  別エンドポイント（詳細未記載）。
 - `pages/api/xml-to-5w1h.ts`  
-  XMLから5W1H形式に変換するAPI。
+  XMLから5W1H形式変換API。
 
 ### ドメインロジック・共通定義
 
 - `lib/npcs.ts`
-  NPCの定義・共通プロンプト・キャラクター情報(XML形式含む)の格納・出力。
-
+  NPC定義・共通プロンプト・キャラクター情報（XML含む）の集約。
 - `lib/prompts.ts`
   プロンプト定義・管理。
-
 - `lib/gemini.ts`
-  Gemini APIとのやりとりに関する実装。
-
+  Gemini APIやストリーム/全文取得実装。`generateGeminiText`他。
 ### データ・リソース
 
 - `scenarios/op_damascus_suburb.xml`
-  シナリオ用XMLファイル例。民間人保護やミッションAbort基準の記述がある。
-
+  旧シナリオ定義(XML)。以降JSON形式への移行推奨。
 ### システム・設定
+
 - `package.json`  
-  依存パッケージ・スクリプト管理。
-
+  依存・スクリプト管理。`ajv`等 structured対応追加済み。
 - `tsconfig.json`  
-  TypeScript構成ファイル。
-
+  TypeScript設定。
 - `next.config.js`  
-  Next.jsビルド・実行設定ファイル。
+  Next.js設定。
 - `next-env.d.ts`  
-  Next.js用型定義。**編集禁止**ファイル。
-
+  Next.js型定義（自動生成・**編集禁止**）。
 - `styles/globals.css` / `styles/globals.scss`  
-  Tailwind等グローバルスタイル指定。
+  Tailwind等グローバルスタイル。
 
 ### ページ・UI
 
 - `pages/_app.tsx`
-  Next.jsトップラップファイル。
-
+  アプリ全体のトップラップ。
 ### ドキュメント
 
 - `README.md`, `README_RUN.md`  
@@ -86,16 +81,46 @@
 
 ---
 
+## シナリオパッケージ構成（JSON形式への移行設計）
+
+今後、/scenarios/ 以下に各シナリオごとのディレクトリを作成し、以下のような形式でシナリオを管理します。
+
+- `/scenarios/{scenario_id}/scenario.json`
+  シナリオ本体・設定・登場人物・ルール等をJSON形式で一元管理します。
+- `/scenarios/{scenario_id}/resources/avatars/[avatar_id].png`
+  シナリオで使用するアバター画像をここに配置します。
+- 共通ルールや他シナリオでも再利用する断片（ルールやNPC設定等）は、`/scenarios/common/` 下などにJSONで分離し、
+  各シナリオJSONから参照パスやIDでリンクする設計とします。
+
+  例：
+  ```json
+  {
+    "title": "オペレーション・ダマスカス近郊",
+    "setting": {...},
+    "members": [...],
+    "rules": ["../common/general_rules.json", "../common/roeg_rules.json"]
+  }
+  ```
+  ※実際のリンク先ファイルはアプリ側で読み込み・マージしてください。
+---
+
+## ハードコード断片の集約について
+
+これまでプロジェクト中でハードコードされていたシナリオ固有データ（登場人物定義、ルール文、設定断片等）は、
+今後すべて該当するシナリオの`scenario.json`または`common`ディレクトリに外部ファイルとして集約・管理します。
+各種LLMプロバイダやUI内で直接定義されていた断片も段階的に`/scenarios/`以下に統一し、シナリオパッケージとして流動的な差し替え・管理を可能とします。
+
+これにより、シナリオの切り替え・可搬・バージョン管理・再利用が容易になり、
+将来的な自然文→シナリオ自動生成やエクスポートにも対応しやすくなります。
+---
+
 ## コーディング注意事項（引き継ぎ）
 
-- **日本語IME入力対応のため、`components/ChatPanel.tsx`での`composing`・`onCompositionStart`・`onCompositionEnd`のロジックは**
-  **絶対に変更しないこと。**
+- **日本語IME入力対応のため、`components/ChatPanel.tsx`での`composing`・`onCompositionStart`・`onCompositionEnd`のロジックは絶対に変更しないこと。**
 - バックエンドLLM拡張時はAPIロジック・アダプタを分離（例：lib/ 以下で管理）し、API本体（multi-agent.ts）は共通I/Fに。
 - ストリーム送信には必ず`sseWrite`関数を利用すること。
 - `next-env.d.ts`は自動生成。手動編集禁止。
----
-
-ファイルや機能の追加時も、上記フォーマットに従い役割・注意点を追記してください。
+- ファイルや機能の追加時は、本ドキュメント記法に従い役割・注意点・ディレクトリを必ず追記すること。
 
 ---
 
@@ -126,22 +151,6 @@
 
 今後のTODO
 - 全ての通信をJSONスキーマを使うstructuredに変更する。
-+
-+## クライアント実装
-+
-+- `components/ChatPanel.tsx`
-+  - メインチャットUI・ロジックを担当。
-+  - APIとの対話は`startMultiAgentStream`関数で一元管理。
-+  - `/api/multi-agent`にJSON形式のリクエストをPOSTし、SSE（Server-Sent Events）によるストリーム応答を受信。
-+  - 受信したストリームデータは`\n\n`で分割し、`data: ...`のJSONをパース後に`onDelta`で逐次反映、`type: 'done'`で会話終了を通知。
-+  - 日本語IME入力対応のため、`composing`イベント部分のコードは変更禁止。
-+
-+## プロバイダ集約
-+
-+- `lib/providers/index.ts`
-+  - 複数LLMプロバイダ（Gemini、OpenAIなど）を`Provider`インターフェースで抽象化し集約。
-+  - `Provider`は`buildMessages`によるプロンプト組み立て、`callSync`（非ストリームAPI呼び出し）、`callStream`（ストリームAPI呼び出し）を持つ。
-+  - `lib/providers/gemini.ts`ではNPC・シナリオ情報を元にプロンプトを構築する`buildMessages`を実装。
 - バックエンド毎の非ストリーム全文取得処理を `lib/` に切り出し、`pages/api/multi-agent.ts` から共通I/Fで呼び出す（保守性向上）。
 - JSON スキーマの外部管理（将来: シナリオからスキーマ生成）に備え、AJV の validator を差し替え可能にする。
 
