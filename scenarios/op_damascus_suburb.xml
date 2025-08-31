@@ -30,17 +30,12 @@
     <status value="計画中" />
   </mission>
   <rules_of_engagement id="roe_v1" purpose="テロリスト排除" classification="simulation">
-    <!-- 基本原則：推測での攻撃禁止・民間人保護最優先 -->
     <principles necessity="true" proportionality="true" distinction="true" precaution="true" minimum_force="true"/>
-    
-    <!-- 用語定義 -->
     <definitions>
       <hostile_act>自爆攻撃の準備・実行、爆発物の受領・搬送・装填など明白な攻撃行為。</hostile_act>
       <hostile_intent>即時に自爆攻撃等へ移行し得る合理的な兆候（遠隔起爆準備、群衆へ接近しながらの装着確認等）。</hostile_intent>
       <positive_identification acronym="PID">対象が敵戦闘員または攻撃に直接関与する者であることをセンサー/人的情報で識別し、誤認の合理的可能性が低い状態。</positive_identification>
     </definitions>
-
-    <!-- 法的・組織的承認（即応自衛を除き要同意） -->
     <authorization>
       <legal_basis>国内法および国際人道法の範囲内での自己・他者防護と重大被害防止。</legal_basis>
       <approval_chain>
@@ -49,16 +44,12 @@
       </approval_chain>
       <self_defense exception="imminent_threat" description="即時の重大被害が切迫し、他手段が間に合わない場合、最小限度の力で防護可。事後報告必須。"/>
     </authorization>
-
-    <!-- 交戦成立条件（すべて満たすこと） -->
     <engagement_criteria>
       <criterion name="PID" required="true" min_confidence="中" sources="ISR,HUMINT,SIGINT">PIDを確立し、味方/民間人と識別可能。</criterion>
       <criterion name="hostile_condition" required="true">敵の<ref term="hostile_act"/>または<ref term="hostile_intent"/>が確認されている。</criterion>
       <criterion name="no_strike_check" required="true">対象・周辺が非戦闘員・医療施設・学校・宗教施設等のノーストライク対象に該当しないこと（該当時は下記例外条項を満たし、高位承認を得る）。</criterion>
       <criterion name="cde" required="true" max_level="2">付随被害見積り（CDE）が許容範囲内。超過時はエスカレーション。</criterion>
     </engagement_criteria>
-
-    <!-- 武器・投射制約（詳細な兵器運用手順は含めない） -->
     <munition_constraints>
       <primary type="AGM-114 ヘルファイア"/>
       <weaponeering>
@@ -67,8 +58,6 @@
       </weaponeering>
       <escalation cde_over="2" to="commander,foreign" action="手段変更/延期/中止検討"/>
     </munition_constraints>
-
-    <!-- 民間人保護（Abort基準を明文化） -->
     <civilian_protection>
       <pattern_of_life required="true" observation_hours="十分" note="日内変動を把握"/>
       <no_strike_list>
@@ -87,23 +76,17 @@
         <approval level="高位" by="commander,foreign" record="必須"/>
       </conditional_override>
     </civilian_protection>
-
-    <!-- 実施前チェック & 通信 -->
     <pre_strike_checks>
       <check name="target_correlation" required="true"/>
       <check name="cde_documented" required="true"/>
       <check name="live_comms" required="true" channels="司令部, 外務省"/>
     </pre_strike_checks>
     <communications comms_check_interval="5分" lost_comms_action="中止/待機"/>
-
-    <!-- 事後措置（透明性・検証） -->
     <post_strike>
       <bdaar required="true" content="BDA/付随被害評価/教訓"/>
       <reporting deadline="30分以内" recipients="司令部, 外務省, 内務省"/>
       <investigation trigger="民間人被害の疑い/ノーストライク違反の疑い" independent_review="true"/>
     </post_strike>
-
-    <!-- 運用上の留意 -->
     <compliance>
       <roe_review trigger="情報/兵器/環境が変更された場合" action="再承認"/>
       <training requirement="全参加者が事前ブリーフに参加しROEテストを合格"/>
@@ -135,3 +118,4 @@
     <item>破片挙動に影響する壁材・構造材などの詳細</item>
   </unknowns>
 </scenario>
+
