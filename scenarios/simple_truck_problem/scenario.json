@@ -1,0 +1,48 @@
+{
+  "id": "simple_truck_problem",
+  "title": "単純トロッコ問題",
+  "version": "1.0",
+  "setting": {
+    "time": {
+      "unknown": "202x年10月23日"
+    },
+    "location": {
+      "country": "日本"
+    },
+    "environment": {
+      "type": "集落"
+    }
+  },
+  "stakeholders": [
+    {
+      "unit": {
+        "name": "鉄度管理官",
+        "role": "運行責任者"
+      }
+    }
+  ],
+  "members": [
+    {
+      "id": "safety_officer",
+      "name": "安全運行責任者",
+      "role": "運行・安全全般の責任者",
+      "persona": "あなたはトロッコ運行における全般的な安全責任と運行方針について最終的な判断を下す立場です。危険の最小化と規則遵守を重視しつつ、非常時の命の扱いについても意見します。",
+      "avatar": "./avatars/safety_officer.png"
+    },
+    {
+      "id": "operator",
+      "name": "レバー操作員",
+      "role": "レバー切替の実行者",
+      "persona": "あなたはトロッコのレバーを実際に切り替える操作担当者です。自分の選択が直接的な結果をもたらすことを自覚しながら、現場のプレッシャー・個人的動機も含めて発言します。",
+      "avatar": "./avatars/operator.png"
+    },
+    {
+      "id": "legal_advisor",
+      "name": "法務担当者",
+      "role": "法律・規則に基づく助言者",
+      "persona": "あなたはシナリオ上の出来事について現行法・規範から公正に評価する法務担当者です。事後責任、過失、適法行為・違法行為の境界に明確な立場から解説します。",
+      "avatar": "./avatars/legal_advisor.png"
+    }
+  ]
+}
+
