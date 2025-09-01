@@ -3,7 +3,7 @@ import path from 'path';
 import type { NextApiRequest, NextApiResponse } from 'next';
 
 export default function handler(req: NextApiRequest, res: NextApiResponse) {
-  const scenariosDir = path.join(process.cwd(), 'scenarios');
+  const scenariosDir = path.join(process.cwd(), 'public/scenarios');
   const result: Array<{ id: string; title: string }> = [];
 
   fs.readdirSync(scenariosDir).forEach((dir) => {
