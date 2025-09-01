@@ -1,44 +1,43 @@
 import { Provider } from "./index";
-import { COMMON_PROMPT } from "../npcs";
+import type { Scenario } from "../../types";
+import type { ChatCompletionMessageParam } from "openai/resources/chat";
 
 const schema = {
-  "type": "object",
-  "properties":
-  {
-    "utterance": {
-      "type": "string",
-      "description": "今回の発言（日本語の自然文）。会議に出す台詞そのもの。"
+  type: "object",
+  properties: {
+    utterance: {
+      type: "string",
+      description: "今回の発言（日本語の自然文）。会議に出す台詞そのもの。",
     },
-    "next_speaker": {
-      "type": "string",
-      "description": "次の発言者のID。例: commander, drone_op_1 など",
-      "pattern": "^(commander|safety|drone|local_operator|foreign|evac)$"
-    }
+    next_speaker: {
+      type: "string",
+      description: "次の発言者のID。例: commander, drone_op_1 など",
+      pattern: "^(commander|safety|drone|local_operator|foreign|evac)$",
+    },
   },
-  "required": [
-    "utterance",
-    "next_speaker"
-  ],
-  "additionalProperties": false
+  required: ["utterance", "next_speaker"],
+  additionalProperties: false,
 };
 
 // メッセージ変換
 function buildMessages({
   npc,
   baseContext,
-  xmlString,
+  disclaimer,
+  behavior,
+  knowledge,
 }: {
   npc: { id: string; persona: string; name: string };
   baseContext: Array<{ role: string; content: string; who?: string }>;
-  xmlString: string;
+  disclaimer?: string;
+  behavior?: [];
+  knowledge: JSON;
 }) {
-  const systemContent = `${COMMON_PROMPT}\n${npc.persona}\n\n${xmlString}`;
-
   return [
-    // { role: "system", content: systemContent },
-    {role: "system", content: COMMON_PROMPT},
-    {role: "system", content: npc.persona },
-    { role: "system", content: xmlString },
+    { role: "system", content: disclaimer },
+    { role: "system", content: behavior?.join("\n") || "" },
+    { role: "system", content: npc.persona },
+    { role: "system", content: JSON.stringify(knowledge) },
     ...baseContext.map((m) => ({
       role: m.role === "user" ? "user" : "assistant",
       who: m.who,
@@ -64,7 +63,9 @@ async function callSync({
     body: JSON.stringify({ model, prompt }),
   });
   if (!response.ok)
-    throw new Error(`Ollama API error: ${response.status} ${response.statusText}`);
+    throw new Error(
+      `Ollama API error: ${response.status} ${response.statusText}`
+    );
 
   return await response.text();
 }
@@ -72,16 +73,28 @@ async function callSync({
 async function* callStream({
   model,
   messages,
+  scenario,
 }: {
   model?: string;
   messages: { role: string; content: string }[];
+  scenario?: Scenario;
 }) {
-  console.log("[ollama] callStream called model=", model);
-  // ここではOllama APIのストリーミング呼び出しのダミー実装
-  // 実際にはfetchでストリームレスポンスを処理する
-
   const endpoint =
     process.env.OLLAMA_API_ENDPOINT ?? "http://localhost:11434/api/generate";
+
+  // console.log("[OpenAI callStream] model:", model);
+  const speakerIds = (scenario?.members ?? []).map((m) => m.id);
+  // 正規表現pattern
+  const pattern = speakerIds
+    .map((id) => id.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+    .join("|");
+
+  const scenarioSchema = JSON.parse(JSON.stringify(schema));
+  scenarioSchema.properties.next_speaker = {
+    type: "string",
+    pattern: "^(" + pattern + ")$",
+    description: "次に話す登場人物のID",
+  };
 
   const systemPart = messages
     .filter((m) => m.role === "system")
@@ -104,14 +117,14 @@ async function* callStream({
     body: JSON.stringify({
       model: model ?? "gemma3:4b", // 未指定時のみデフォルト
       prompt,
-      format: schema,
+      format: scenarioSchema,
       stream: true,
     }),
   });
 
   // console.log("[ollama] response:", response);
 
-if (!response.body) throw new Error("No response body from Ollama");
+  if (!response.body) throw new Error("No response body from Ollama");
 
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
@@ -121,13 +134,13 @@ if (!response.body) throw new Error("No response body from Ollama");
     const { done, value } = await reader.read();
     if (done) break;
     buffer += decoder.decode(value, { stream: true });
-
+    // console.log("[ollama] chunk:", buffer);
     // 1行ごと（\n区切り）でパース
-    let lines = buffer.split('\n');
+    let lines = buffer.split("\n");
     buffer = lines.pop() || ""; // 未完結の行は次回へ保持
 
     for (const line of lines) {
-      // console.log("[ollama] line:", line);
+      console.log("[ollama] line:", line);
       if (!line.trim()) continue;
       try {
         const obj = JSON.parse(line);
@@ -154,4 +167,3 @@ const ollama: Provider = {
 };
 
 export default ollama;
-

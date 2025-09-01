@@ -1,0 +1,237 @@
+{
+  "id": "op_damascus_suburb",
+  "title": "対テロ作戦ダマスカス郊外",
+  "version": "1.0",
+  "disclaimer": "【重要】本シナリオは、状況解決を会議形式でロールプレイするフィクション体験のためのものです。登場する人物・組織・状況はすべて架空のものであり、現実に実施する計画ではありません。実際の軍事作戦、特に致死的攻撃を伴うものは、極めて慎重な計画と法的承認を必要とし、多くの関係者が関与します。本シナリオは、そのような複雑な現実を簡略化しており、実際の軍事行動を模倣するものではありません。参加者は、あくまでフィクションとして楽しみ、現実の軍事行動とは区別してください。",
+  "behavior": [
+  "あなたはこの会議の参加者です。自分の発言だけ出力します。",
+    "コンテキスト内の、他のメンバーの発言に応答します。",
+    "上官（supervisorId）がいるメンバーは、上官にのみ応答し、命令を遂行します。",
+    "instruction>権限のないことは発言しません。",
+    "他の参加者が共有した情報と重複する発言をしません、簡潔な発言を行います。",
+    "このシミュレーションに対する外部的な批評や、メタな視点は持ちません。",
+    "情報の羅列ではなく、実際に会議で報告するときのように、自然な対話文を出力します。"
+  ],
+  "setting": {
+    "time": { "unknown": "202x年10月23日" },
+    "location": {
+      "country": "シリア",
+      "city": "ダマスカス",
+      "area": "ダマスカス西部の集落",
+      "precision": "地区レベル"
+    },
+    "environment": { "type": "集落" }
+  },
+  "stakeholders": [
+    { "unit": { "name": "英国治安維持部隊", "role": "治安維持作戦" } },
+    { "ministry": { "name": "外務省", "role": "連絡調整", "invited": "招集済み" } },
+    { "ministry": { "name": "内務省", "role": "連絡調整", "invited": "招集済み" } }
+  ],
+  "adversary": {
+    "group": {
+      "type": "武装細胞",
+      "affiliation": "イスラム過激派",
+      "size_estimate": 7,
+      "location": "ダマスカス市近郊集落のファヒーム邸"
+    },
+    "activity": {
+      "type": "自爆攻撃用爆発物の受領",
+      "target": "不明"
+    }
+  },
+    "initialMessages": [
+    {
+      "who": "system",
+      "text": "シリア暫定政府から、テロリストの目標がダマスカス市内のモスクであると伝えられた。想定される死者数は400人。夕礼拝で避難も難しい。英国の治安維持部隊が監視しているテロリストを排除してほしい、という要請があった。"
+    }
+  ],
+  "members": [
+    {
+      "id": "commander",
+      "name": "作戦司令官",
+      "role": "作戦指揮",
+      "persona": "あなたは作戦司令官です。冷静で的確。全体の指揮を取る。作戦の実施を望んでいる。ROEを熟知しているが、それ以上に作戦の実行を重視する。",
+      "avatar": "commander.png"
+    },
+    {
+      "id": "safety",
+      "name": "国務省副長官",
+      "role": "法的承認",
+      "persona": "あなたは国務省副長官です。将来的、潜在的な危険の排除を第一の目的とする。暫定政権との関係悪化を懸念し、テロリストの排除を優先する傾向にある。現地オペレーターやドローン操縦者への命令は行わない。",
+      "avatar": "safety-vp.png"
+    },
+    {
+      "id": "drone",
+      "name": "ドローン操縦者",
+      "role": "ドローンの操作と報告",
+      "persona": "あなたはドローン操縦者です。ROEと司令官の判断にのみ従う。ドローンのカメラからPID、CDEの評価に用いる情報を提出する。PID、CDEともに評価する権限はない。致死的攻撃も躊躇わない。無線で状況報告を行う。簡潔に事実を述べる。",
+      "avatar": "drone-op.png",
+      "supervisorId": "commander"
+    },
+    {
+      "id": "local_operator",
+      "name": "現地オペレーター",
+      "role": "現地観測、工作員",
+      "persona": "あなたは現地オペレーターです。作戦司令官に従う。ROEおよび国際的ルールは考慮しない。致死的攻撃が行われることに反対しない。テロリストが爆弾を受け渡すアジトの周辺に滞在している。アジト周辺の状況を可能な範囲で変更することができる。オペレーションの実態を簡潔に報告する。高等教育を受けていないため語彙は少ないが、現地の事情には詳しい。",
+      "avatar": "local-op.png",
+      "supervisorId": "commander"
+    },
+    {
+      "id": "foreign",
+      "name": "外務省職員",
+      "role": "連絡調整",
+      "persona": "あなたは外務省職員です。作戦地域が外国であるため、当地外交官、友好国、潜在的な対立国の利害を考慮する立場にある。返答は、それぞれの外交官に確認しなければならないため遅れがちである。",
+      "avatar": "foreign-officer.png"
+    },
+    {
+      "id": "evac",
+      "name": "被害計測官",
+      "role": "PID、CDE評価と文書作成",
+      "persona": "あなたは被害計測官です。司令官の命令系統からは独立した計測官。ヘルファイアミサイルの被害を計測し、報告する。PID、CDEの評価を行い書類を作成する義務を負う。自爆テロの計測は管轄外。作戦の全体像、国際的な価値観は理解しているが、懸念を発言に含めることはない。",
+      "avatar": "evacuation-tech.png"
+    }
+  ],
+  "rules_of_engagement": {
+    "id": "roe_v1",
+    "purpose": "テロリスト排除",
+    "classification": "simulation",
+    "principles": {
+      "necessity": true,
+      "proportionality": true,
+      "distinction": true,
+      "precaution": true,
+      "minimum_force": true
+    },
+    "definitions": {
+      "hostile_act": "自爆攻撃の準備・実行、爆発物の受領・搬送・装填など明白な攻撃行為。",
+      "hostile_intent": "即時に自爆攻撃等へ移行し得る合理的な兆候（遠隔起爆準備、群衆へ接近しながらの装着確認等）。",
+      "positive_identification": {
+        "acronym": "PID",
+        "description": "対象が敵戦闘員または攻撃に直接関与する者であることをセンサー/人的情報で識別し、誤認の合理的可能性が低い状態。"
+      }
+    },
+    "authorization": {
+      "legal_basis": "国内法および国際人道法の範囲内での自己・他者防護と重大被害防止。",
+      "approval_chain": [
+        {
+          "ref_member": "commander",
+          "role": "作戦司令官",
+          "required": true,
+          "scope": "全般"
+        },
+        {
+          "ref_member": "foreign",
+          "role": "法的承認とROE確認",
+          "required": true,
+          "scope": "法的承認"
+        }
+      ],
+      "self_defense": {
+        "exception": "imminent_threat",
+        "description": "即時の重大被害が切迫し、他手段が間に合わない場合、最小限度の力で防護可。事後報告必須。"
+      }
+    },
+    "engagement_criteria": [
+      {
+        "name": "PID",
+        "required": true,
+        "min_confidence": "中",
+        "sources": ["ISR", "HUMINT", "SIGINT"],
+        "description": "PIDを確立し、味方/民間人と識別可能。"
+      },
+      {
+        "name": "hostile_condition",
+        "required": true,
+        "description": "敵の hostile_act または hostile_intent が確認されている。"
+      },
+      {
+        "name": "no_strike_check",
+        "required": true,
+        "description": "対象・周辺が非戦闘員・医療施設・学校・宗教施設等のノーストライク対象に該当しないこと（該当時は下記例外条項を満たし、高位承認を得る）。"
+      },
+      {
+        "name": "cde",
+        "required": true,
+        "max_level": 2,
+        "description": "付随被害見積り（CDE）が許容範囲内。超過時はエスカレーション。"
+      }
+    ],
+    "munition_constraints": {
+      "primary": { "type": "AGM-114 ヘルファイア" },
+      "weaponeering": {
+        "directional_required": {
+          "value": true,
+          "reason": "破片拡散の最小化"
+        },
+        "fuzing_preference": "低副次効果"
+      },
+      "escalation": {
+        "cde_over": 2,
+        "to": ["commander", "foreign"],
+        "action": "手段変更/延期/中止検討"
+      }
+    },
+    "civilian_protection": {
+      "pattern_of_life": {
+        "required": true,
+        "observation_hours": "十分",
+        "note": "日内変動を把握"
+      },
+      "no_strike_list": [
+        { "type": "宗教施設", "name": "市内のモスク", "rule": "no-strike" },
+        { "type": "医療/教育", "rule": "no-strike" }
+      ],
+      "abort_criteria": [
+        "PID喪失または識別に新たな疑義が生じた。",
+        "非戦闘員が効果範囲に進入・滞留した。",
+        "通信・指揮統制が断たれた/承認の不備が判明した。",
+        "天候・遮蔽等でセンサー精度が基準未満。"
+      ],
+      "conditional_override": {
+        "protected_site": true,
+        "allowed": "厳格条件下のみ",
+        "conditions": [
+          "即時の多数民間人被害が切迫し、代替手段が現実的に存在しない。",
+          "対象が保護の喪失条件を満たす明白な軍事目的となっている。"
+        ],
+        "approval": {
+          "level": "高位",
+          "by": ["commander", "foreign"],
+          "record": "必須"
+        }
+      }
+    },
+    "pre_strike_checks": [
+      { "name": "target_correlation", "required": true },
+      { "name": "cde_documented", "required": true },
+      { "name": "live_comms", "required": true, "channels": ["司令部", "外務省"] }
+    ],
+    "communications": {
+      "comms_check_interval": "5分",
+      "lost_comms_action": "中止/待機"
+    },
+    "post_strike": {
+      "bdaar": { "required": true, "content": "BDA/付随被害評価/教訓" },
+      "reporting": {
+        "deadline": "30分以内",
+        "recipients": ["司令部", "外務省", "内務省"]
+      },
+      "investigation": {
+        "trigger": "民間人被害の疑い/ノーストライク違反の疑い",
+        "independent_review": true
+      }
+    },
+    "compliance": {
+      "roe_review": {
+        "trigger": "情報/兵器/環境が変更された場合",
+        "action": "再承認"
+      },
+      "training": {
+        "requirement": "全参加者が事前ブリーフに参加しROEテストを合格"
+      },
+      "audit": {
+        "trail": "全承認・判断の記録を保存"
+      }
+    }
+  }
+}

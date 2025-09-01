@@ -1,26 +1,26 @@
 import OpenAI from "openai";
-import { COMMON_PROMPT } from "../npcs";
+import type { Scenario } from "../../types";
+import type { ChatCompletionMessageParam } from "openai/resources/chat";
 
 const schema = {
-    "name": "NextTurnDirective",
-    "strict": true,
-    "schema": {
-      "type": "object",
-      "properties": {
-        "utterance": {
-          "type": "string",
-          "description": "今回の発言（日本語の自然文）。会議に出す台詞そのもの。",
-        },
-        "next_speaker": {
-          "type": "string",
-          "description": "次の発言者のID。例: commander, drone_op_1 など",
-          "pattern": "^(commander|safety|drone|local_operator|foreign|evac)$",
-        },
+  name: "NextTurnDirective",
+  strict: true,
+  schema: {
+    type: "object",
+    properties: {
+      utterance: {
+        type: "string",
+        description: "今回の発言（日本語の自然文）。会議に出す台詞そのもの。",
       },
-      "required": ["utterance", "next_speaker"],
-      "additionalProperties": false,
-    }
-  };
+      next_speaker: {
+        type: "string",
+        description: "次の発言者のID。例: commander, drone_op_1 など",
+      },
+    },
+    required: ["utterance", "next_speaker"],
+    additionalProperties: false,
+  },
+};
 
 // 環境変数で API キー取得
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
@@ -32,19 +32,22 @@ const openai = new OpenAI({ apiKey: OPENAI_API_KEY });
 function buildMessages({
   npc,
   baseContext,
-  xmlString,
+  disclaimer,
+  behavior,
+  knowledge
 }: {
   npc: { id: string; persona: string; name: string };
   baseContext: Array<{ role: string; content: string; who?: string }>;
-  xmlString: string;
+  disclaimer?: string;
+  behavior?: [];
+  knowledge: JSON;
 }) {
-  // COMMON_PROMPT と npc.persona, xmlString を繋ぐ
-  const systemContent = `${COMMON_PROMPT}\n${npc.persona}\n\n${xmlString}`;
-
+ 
   return [
-    { role: "system", content: COMMON_PROMPT },
+    { role: "system", content: disclaimer },
+    { role: "system", content: behavior?.join("\n") || "" },
     { role: "system", content: npc.persona },
-    { role: "system", content: xmlString },
+    { role: "system", content: JSON.stringify(knowledge) },
     ...baseContext.map((m) => ({
       role: m.role === "user" ? "user" : "assistant",
       who: m.who,
@@ -65,7 +68,7 @@ async function callSync({
 }) {
   const response = await openai.chat.completions.create({
     model: model,
-    messages: messages,
+    messages: messages as ChatCompletionMessageParam[],
     response_format: { type: "json_schema", json_schema: schema as any },
     reasoning_effort: "low",
     // max_tokens: 2048,
@@ -79,14 +82,29 @@ async function callSync({
 async function* callStream({
   model = "gpt-5-mini",
   messages,
+  scenario,
 }: {
   model?: string;
   messages: { role: string; content: string }[];
+  scenario?: Scenario;
 }) {
-  console.log("[OpenAI callStream] model:", model);
+  // console.log("[OpenAI callStream] model:", model);
+  const speakerIds = (scenario?.members ?? []).map((m) => m.id);
+  // 正規表現pattern
+  const pattern = speakerIds
+    .map((id) => id.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+    .join("|");
+
+  const scenarioSchema = JSON.parse(JSON.stringify(schema));
+  scenarioSchema.schema.properties.next_speaker = {
+    type: "string",
+    pattern: "^(" + pattern + ")$",
+    description: "次に話す登場人物のID",
+  };
+
   const response = await openai.chat.completions.create({
     model: model,
-    messages: messages,
+    messages: messages as ChatCompletionMessageParam[],
     response_format: { type: "json_schema", json_schema: schema as any },
     reasoning_effort: "low",
     stream: true,
