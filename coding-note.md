@@ -137,7 +137,67 @@ export type Scenario = {
 propsや状態管理の型も統一することで型エラーや運用バグを防止しています。
 ---
 
-## シナリオパッケージ構成（JSON形式への移行設計）
+## シナリオパッケージ構成（現状2024/06）
+
+このプロジェクトでは、各会議シナリオは「パッケージ」（ディレクトリ単位）として `public/scenarios/` 配下に管理されます。
+
+### 主なディレクトリ・ファイル構成
+
+```
+public/
+  scenarios/
+    {scenarioId}/
+      scenario.json         -- シナリオ本体の設定・登場人物・初期メッセージ等をすべて含む構造化JSON
+      avatars/
+        (各memberで利用するアバター画像, 例: operator.png, safety_officer.png, など)
+```
+
+#### ファイル・ディレクトリの役割
+
+- **public/scenarios/{scenarioId}/scenario.json**
+  - シナリオ個別の主ファイル（JSON）
+  - 含める内容例：
+    - `id`, `title`, `version`... ：基本情報
+    - `members`: 登場人物・エージェント一覧（役割、名前、アバターID、上司ID、性格など）
+    - `initialMessages`：会議開始時点でのシステム・状況説明メッセージ
+    - その他柔軟に新規項目（ルール・イベント・分岐条件等）
+
+- **public/scenarios/{scenarioId}/avatars/**
+  - 上記シナリオ専用のアバター画像置き場
+  - `scenario.json` の `avatar` フィールドでパス（例: `"./avatars/operator.png"`）として利用
+
+### フロントエンド・バックエンドとのデータ連携
+
+- **シナリオ一覧の取得**
+  - `/api/scenario-list`（`pages/api/scenario-list.ts`）で `public/scenarios/` を走査し、
+    - 配下のシナリオID一覧＋タイトルをAPIで取得
+    - クライアントはここで得た一覧から選択UI生成
+
+- **シナリオ本体データの取得**
+  - クライアントサイドの `fetch('/scenarios/{scenarioId}/scenario.json')` で直接取得
+  - 初期メッセージやmembers情報などもこのJSON経由でパネル・チャット内容に反映
+
+- **アバター画像の利用**
+  - `public/scenarios/{scenarioId}/avatars/xxx.png` を `img`タグや`src`属性で参照
+
+### 型定義・仕様管理
+
+- 構造化JSON（`scenario.json`）の型・構成は `types/index.ts` にて型定義
+  - 主な型：`Scenario`, `Member`, `Message` など
+  - props/stateや型アノテーションは `import type { Scenario, Member, Message } from '../types'` で統一
+
+### 運用・追加・変更フロー
+
+- 新シナリオ追加： `public/scenarios/{新id}/scenario.json` と `avatars/` 以下に必要な画像を配置
+- 削除もディレクトリごと削除で即反映
+- シナリオ編集は `scenario.json` を直接編集（型に準拠）
+- シナリオ切替はクライアントUIのセレクトから、パネル・チャットの状態を動的に変更
+
+---
+
+以上が2024年6月時点の「シナリオパッケージ構成」および現状構成ファイルリスト・役割です。
+
+今後「認証」や「柔軟なルール参照」「分岐イベント」導入時はこのJSONモデルの拡張あるいはAPI方式への追加拡張が想定されます。
 
 今後、/scenarios/ 以下に各シナリオごとのディレクトリを作成し、以下のような形式でシナリオを管理します。
 
@@ -209,4 +269,6 @@ propsや状態管理の型も統一することで型エラーや運用バグを
 - JSON スキーマの外部管理（将来: シナリオからスキーマ生成）に備え、AJV の validator を差し替え可能にする。
 
 _Last updated: 2025-08-27
+
+
 

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, KeyboardEvent } from "react";
-import { NPCS } from "../lib/npcs";
+// import { NPCS } from "../lib/npcs";
 import ModelSelectorPanel from "./ModelSelectorPanel";
 import type { Message } from "../types";
 
@@ -65,6 +65,7 @@ export default function ChatPanel({ scenario, messages, setMessages }: ChatPanel
             text: "シリア暫定政府から、テロリストの目標がダマスカス市内のモスクであると伝えられた。想定される死者数は400人。夕礼拝で避難も難しい。英国の治安維持部隊が監視しているテロリストを排除してほしい、という要請があった。",
           },
         ];
+  const NPCS = scenario?.members ?? [];
 
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [text, setText] = useState("");
