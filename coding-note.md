@@ -15,8 +15,6 @@
   - APIとの対話は`startMultiAgentStream`関数で一元管理。
   - `/api/multi-agent`にJSON形式POST+SSEでやりとり、ストリームデータの逐次反映は`onDelta`経由。
   - 受信したストリームデータは`\n\n`で分割、`data: ...`のJSONをパースし`onDelta`に渡す。`type: 'done'`で完了通知。
-  - **composingイベント部分は変更禁止。**
-
 - `components/MainPanel.tsx`
   サブUIパネル。本体チャットやモデル切替など、複数のパネルを管理。
 
@@ -24,15 +22,19 @@
   LLMの選択UI。
 
 ### プロバイダ集約
+
 - `lib/providers/`
   各種LLMプロバイダの実装とインターフェース集約。OpenAI、Gemini、Ollama対応。
+
 - `lib/providers/index.ts`
-  - 複数LLMプロバイダを`Provider` I/Fで抽象化・集約。
+  複数LLMプロバイダを`Provider` I/Fで抽象化・集約。
   - `buildMessages`: プロンプト生成、`callSync`: 非ストリーム呼び出し、`callStream`: ストリーム呼び出しを持つ。
+
 - `lib/providers/gemini.ts`
   Gemini API対応。NPC・シナリオ情報を元に`buildMessages`等を実装。
 
 ### multi-agent API/バックエンド
+
 - `pages/api/multi-agent.ts`  
   複数NPCの会話シミュレーション用SSEストリームAPI
   - リクエストでbackend（`gemini`等）、NPC ID群、structuredフラグ等を受け取る。
@@ -40,8 +42,10 @@
   - SSE形式でクライアントへ逐次応答送信。`utterance`や次発話者のJSONなどを分離して送る。
   - JSON Schema（AJV）による検証対応：structured:true時は全文取得→JSON抽出（`extractJson`）→AJV検証→SSE送信。エラー時は`type: 'error'`で返却。
   - ストリーム送信には`sseWrite`関数を必ず利用。
+
 - `pages/api/chat.ts`  
   別エンドポイント（詳細未記載）。
+
 - `pages/api/xml-to-5w1h.ts`  
   XMLから5W1H形式変換API。
 
@@ -49,24 +53,32 @@
 
 - `lib/npcs.ts`
   NPC定義・共通プロンプト・キャラクター情報（XML含む）の集約。
+
 - `lib/prompts.ts`
   プロンプト定義・管理。
+
 - `lib/gemini.ts`
   Gemini APIやストリーム/全文取得実装。`generateGeminiText`他。
+
 ### データ・リソース
 
 - `scenarios/op_damascus_suburb.xml`
   旧シナリオ定義(XML)。以降JSON形式への移行推奨。
+
 ### システム・設定
 
 - `package.json`  
   依存・スクリプト管理。`ajv`等 structured対応追加済み。
+
 - `tsconfig.json`  
   TypeScript設定。
+
 - `next.config.js`  
   Next.js設定。
+
 - `next-env.d.ts`  
   Next.js型定義（自動生成・**編集禁止**）。
+
 - `styles/globals.css` / `styles/globals.scss`  
   Tailwind等グローバルスタイル。
 
@@ -74,11 +86,55 @@
 
 - `pages/_app.tsx`
   アプリ全体のトップラップ。
+
 ### ドキュメント
 
 - `README.md`, `README_RUN.md`  
   プロジェクト概要・導入解説・実行手順。
 
+---
+
+## 共通型定義(TypeScript)について
+
+プロジェクト全体で型の重複や不整合を避けるため、`types/index.ts`に主要な型定義を一元管理しています。
+
+### 主な型定義（types/index.ts）
+
+```typescript
+// メッセージ（チャット1件）の型
+export type Message = {
+  who: "user" | "system" | `npc:${string}` | "assistant";
+  text: string;
+};
+
+// 登場人物（メンバー/NPC/エージェント）
+export type Member = {
+  id: string;
+  name: string;
+  role: string;
+  persona?: string;
+  avatar?: string;
+  supervisorId?: string;
+};
+
+// シナリオ本体の型（拡張性重視。必要で追記）
+export type Scenario = {
+  id: string;
+  title: string;
+  version?: string;
+  members?: Member[];
+  initialMessages?: Message[];
+  // 柔軟に他の項目も追加
+  [key: string]: any;
+};
+```
+
+- **Message**: チャットの発話単位。発話者を`who`（ユーザー・システム・NPC等）および内容`text`で持つ。NPCは `npc:エージェントID` のような表記に対応。
+- **Member**: 会議での一人ひとりの登場人物。役割やアバター、上司情報も含む。
+- **Scenario**: シナリオ自体の汎用型。`members`や`initialMessages`などを含み、柔軟拡張可能。
+
+すべてのファイル・コンポーネントで型を共通import（`import type { Message, Member, Scenario } from '../types'` 等）し、
+propsや状態管理の型も統一することで型エラーや運用バグを防止しています。
 ---
 
 ## シナリオパッケージ構成（JSON形式への移行設計）
@@ -87,10 +143,11 @@
 
 - `/scenarios/{scenario_id}/scenario.json`
   シナリオ本体・設定・登場人物・ルール等をJSON形式で一元管理します。
+
 - `/scenarios/{scenario_id}/resources/avatars/[avatar_id].png`
   シナリオで使用するアバター画像をここに配置します。
-- 共通ルールや他シナリオでも再利用する断片（ルールやNPC設定等）は、`/scenarios/common/` 下などにJSONで分離し、
-  各シナリオJSONから参照パスやIDでリンクする設計とします。
+
+- 共通ルールや他シナリオでも再利用する断片（ルールやNPC設定等）は、`/scenarios/common/` 下などにJSONで分離し、各シナリオJSONから参照パスやIDでリンクする設計とします。
 
   例：
   ```json
@@ -106,12 +163,9 @@
 
 ## ハードコード断片の集約について
 
-これまでプロジェクト中でハードコードされていたシナリオ固有データ（登場人物定義、ルール文、設定断片等）は、
-今後すべて該当するシナリオの`scenario.json`または`common`ディレクトリに外部ファイルとして集約・管理します。
-各種LLMプロバイダやUI内で直接定義されていた断片も段階的に`/scenarios/`以下に統一し、シナリオパッケージとして流動的な差し替え・管理を可能とします。
+これまでプロジェクト中でハードコードされていたシナリオ固有データ（登場人物定義、ルール文、設定断片等）は、今後すべて該当するシナリオの`scenario.json`または`common`ディレクトリに外部ファイルとして集約・管理します。各種LLMプロバイダやUI内で直接定義されていた断片も段階的に`/scenarios/`以下に統一し、シナリオパッケージとして流動的な差し替え・管理を可能とします。
 
-これにより、シナリオの切り替え・可搬・バージョン管理・再利用が容易になり、
-将来的な自然文→シナリオ自動生成やエクスポートにも対応しやすくなります。
+これにより、シナリオの切り替え・可搬・バージョン管理・再利用が容易になり、将来的な自然文→シナリオ自動生成やエクスポートにも対応しやすくなります。
 ---
 
 ## コーディング注意事項（引き継ぎ）

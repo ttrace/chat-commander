@@ -1,32 +1,47 @@
-import { useState, useRef, KeyboardEvent } from 'react'
-import MainPanel from '../components/MainPanel'
-import ChatPanel from '../components/ChatPanel'
-
-type Message = { who: 'user' | 'system'; text: string }
-
-function ChatMessage({ who, text }: Message) {
-  const isUser = who === 'user'
-  return (
-    <div className={`flex ${isUser ? 'justify-end' : 'justify-start'} mb-2`}>
-      <div className={`${isUser ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-900'} px-4 py-2 rounded-lg max-w-[80%]`}>{text}</div>
-    </div>
-  )
-}
-
-// Use the shared ChatPanel component (includes NPC buttons)
+import { useState, useEffect } from "react";
+import MainPanel from "../components/MainPanel";
+import ChatPanel from "../components/ChatPanel";
+import type { Message, Member, Scenario } from '../types';
 
 export default function Home() {
+  // シナリオID・データ・メンバーリスト用state
+  const [scenarioId, setScenarioId] = useState("");
+  const [scenario, setScenario] = useState<Scenario | null>(null);
+  const [members, setMembers] = useState<Member[]>([]);
+  const [messages, setMessages] = useState<Message[]>([]);
+
+  // シナリオ変更時のデータ取得
+  useEffect(() => {
+    if (!scenarioId) return;
+    fetch(`/scenarios/${scenarioId}/scenario.json`)
+      .then((res) => (res.ok ? res.json() : Promise.reject(res.statusText)))
+      .then((json: Scenario) => {
+        setScenario(json);
+        setMembers(json.members ?? []);
+        setMessages(json.initialMessages ?? []); // ← 初期メッセージもここでセット
+      })
+      .catch(() => {
+        setScenario(null);
+        setMembers([]);
+      });
+  }, [scenarioId]);
+
   return (
     <div className="app-container">
       <div className="card">
         <div className="col-span-1 overflow-auto">
-          <MainPanel />
+          <MainPanel
+            scenarioId={scenarioId}
+            onSelectScenario={setScenarioId}
+            scenario={scenario}
+            members={members}
+          />
         </div>
         <div className="col-span-2 flex flex-col">
           <h1 className="text-2xl font-bold mb-4">対策会議室</h1>
-          <ChatPanel />
+          <ChatPanel scenario={scenario} messages={messages} setMessages={setMessages} />
         </div>
       </div>
     </div>
-  )
+  );
 }

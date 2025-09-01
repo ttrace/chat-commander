@@ -1,8 +1,14 @@
 import { useState, useRef, useEffect, KeyboardEvent } from "react";
 import { NPCS } from "../lib/npcs";
 import ModelSelectorPanel from "./ModelSelectorPanel";
+import type { Message } from "../types";
 
-type Message = { who: string; text: string };
+type ChatPanelProps = {
+  scenario?: any;
+  messages: Message[];
+  setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
+  // 他にも必要なpropsがあればここに追記
+};
 
 async function startMultiAgentStream(
   payload: any,
@@ -47,29 +53,31 @@ async function startMultiAgentStream(
   onDone?.();
 }
 
-export default function ChatPanel() {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      who: "system",
-      text: "シリア暫定政府から、テロリストの目標がダマスカス市内のモスクであると伝えられた。想定される死者数は400人。夕礼拝で避難も難しい。英国の治安維持部隊が監視しているテロリストを排除してほしい、という要請があった。",
-    },
-  ]);
+export default function ChatPanel({ scenario, messages, setMessages }: ChatPanelProps) {
+  const initialMessages: Message[] =
+    scenario &&
+    Array.isArray(scenario.initialMessages) &&
+    scenario.initialMessages.length > 0
+      ? scenario.initialMessages
+      : [
+          {
+            who: "system",
+            text: "シリア暫定政府から、テロリストの目標がダマスカス市内のモスクであると伝えられた。想定される死者数は400人。夕礼拝で避難も難しい。英国の治安維持部隊が監視しているテロリストを排除してほしい、という要請があった。",
+          },
+        ];
+
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [text, setText] = useState("");
   const [isComposing, setIsComposing] = useState(false);
   const isComposingRef = useRef(false);
   const justComposedRef = useRef(false);
   const [isLoading, setIsLoading] = useState(false);
-
-  const [backend, setBackend] = useState<"openai" | "gemini" | "ollama">(
-    "openai"
-  );
+  const [backend, setBackend] = useState<"openai" | "gemini" | "ollama">("openai");
   const [ollamaModel, setOllamaModel] = useState<string>("gemma3:4b");
   const [selectorOpen, setSelectorOpen] = useState(false);
   const [highlightNpcId, setHighlightNpcId] = useState<string | null>(null);
-
-  // 入力欄フォーカス状態管理追加
   const [isInputFocused, setIsInputFocused] = useState(false);
+
   useEffect(() => {
     function globalKeyDown(e: KeyboardEvent) {
       if (isInputFocused) return;
@@ -80,9 +88,8 @@ export default function ChatPanel() {
         }
       }
     }
-    window.addEventListener('keydown', globalKeyDown as any);
-    return () => window.removeEventListener('keydown', globalKeyDown as any);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    window.addEventListener("keydown", globalKeyDown as any);
+    return () => window.removeEventListener("keydown", globalKeyDown as any);
   }, [isInputFocused, highlightNpcId]);
 
   const sendMessage = async () => {
@@ -139,7 +146,7 @@ export default function ChatPanel() {
           content: `【ゲームプレイヤー発言】${m.text}`,
           who: "user",
         };
-      } else if (m.who.startsWith("npc:")) {
+      } else if (typeof m.who === "string" && m.who.startsWith("npc:")) {
         return {
           role: "assistant",
           content: m.text,
@@ -211,7 +218,7 @@ export default function ChatPanel() {
           }
           if (delta !== undefined && who) {
             setMessages((prev) => {
-              const idx = prev.map((m) => m.who).lastIndexOf(who);
+              const idx = prev.map((m) => m.who).lastIndexOf(who as Message["who"]);
               if (idx >= 0 && idx === prev.length - 1) {
                 const copy = [...prev];
                 copy[idx] = {
@@ -220,7 +227,7 @@ export default function ChatPanel() {
                 };
                 return copy;
               }
-              return [...prev, { who, text: delta! }];
+              return [...prev, { who: who as Message['who'], text: delta! }];
             });
           }
         },
@@ -349,4 +356,3 @@ export default function ChatPanel() {
     </div>
   );
 }
-
