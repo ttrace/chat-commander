@@ -98,19 +98,6 @@ async function* callStream({
     description: "次に話す登場人物のID",
   };
 
-  // const systemPart = messages
-  //   .filter((m) => m.role === "system")
-  //   .map((m) => m.content)
-  //   .join("\n\n");
-  // const conversationPart = messages
-  //   .filter((m) => m.role !== "system")
-  //   .map((m) => {
-  //     const roleLabel = m.role === "user" ? "ユーザー" : "アシスタント";
-  //     return `${roleLabel}: ${m.content}`;
-  //   })
-  //   .join("\n\n");
-  // const prompt = [systemPart, conversationPart].filter(Boolean).join("\n\n");
-  // console.log(`[gemini] callStream prompt=`, prompt);
 
   // Gemini形式への変換
   const contents = messages

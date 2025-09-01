@@ -228,9 +228,9 @@ export default async function handler(
           let previousSentBuffer = ""; // 前回送信したutteranceを保存
 
           // 受信チャンク処理のループ
-          console.log(
-            `[multi-agent] Starting stream for npcId=${id} backend=${backendKey}`
-          );
+          // console.log(
+          //   `[multi-agent] Starting stream for npcId=${id} backend=${backendKey}`
+          // );
           console.log(messagesWithJson);
           for await (const chunk of provider.callStream({
             model,
