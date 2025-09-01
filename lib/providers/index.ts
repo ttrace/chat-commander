@@ -1,12 +1,13 @@
 import gemini from './gemini';
 import openai from './openai';
 import ollama from './ollama';
+import type { Scenario } from '../../types';
 
 export interface Provider {
   id: string;
   buildMessages: (opts: any) => any[];
   callSync?: (opts: { model?: string; messages: any[]; schema?: object}) => Promise<string>;
-  callStream?: (opts: { model?: string; messages: any[] }) => AsyncIterable<string | { text: string }>;
+  callStream?: (opts: { model?: string; messages: any[]; scenario?: Scenario }) => AsyncIterable<string | { text: string }>;
 }
 
 export const PROVIDERS: Record<string, Provider> = {

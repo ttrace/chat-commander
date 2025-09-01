@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, KeyboardEvent } from "react";
 // import { NPCS } from "../lib/npcs";
 import ModelSelectorPanel from "./ModelSelectorPanel";
-import type { Message } from "../types";
+import type { Member, Message } from "../types";
 
 type ChatPanelProps = {
   scenario?: any;
@@ -177,6 +177,7 @@ export default function ChatPanel({ scenario, messages, setMessages }: ChatPanel
               ? "gemini-2.5-flash"
               : undefined,
           structured: true,
+          scenario
         },
         (evt) => {
           if (evt.error) {
@@ -274,7 +275,7 @@ export default function ChatPanel({ scenario, messages, setMessages }: ChatPanel
           >
             {typeof m.who === "string" && m.who.startsWith("npc:") && (
               <img
-                src={NPCS.find((n) => `npc:${n.id}` === m.who)?.avatar}
+              src={`/scenarios/${scenario.id}/avatars/${NPCS.find((n: Member) => `npc:${n.id}` === m.who)?.avatar}`}
                 alt="avatar"
                 className="w-24 h-24 rounded-md mr-2"
               />
@@ -318,7 +319,7 @@ export default function ChatPanel({ scenario, messages, setMessages }: ChatPanel
       </div>
 
       <div className="mt-3 flex gap-2 flex-wrap items-center">
-        {NPCS.map((n) => (
+        {NPCS.map((n: Member) => (
           <button
             key={n.id}
             onClick={() => {
@@ -332,7 +333,7 @@ export default function ChatPanel({ scenario, messages, setMessages }: ChatPanel
                 : "")
             }
           >
-            <img src={n.avatar} className="w-6 h-6 rounded-full" />
+            <img src={`/scenarios/${scenario.id}/avatars/${n.avatar}`} className="w-6 h-6 rounded-full" />
             <span>{n.name}に喋らせる</span>
           </button>
         ))}

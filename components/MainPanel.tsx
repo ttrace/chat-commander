@@ -46,7 +46,7 @@ function MainPanel({ scenarioId, onSelectScenario, scenario, members = [] }: Mai
         <ul>
           {members.map((m) => (
             <li key={m.id} className="mb-2 flex items-center">
-              {m.avatar && <img src={m.avatar} alt={m.name} className="w-8 h-8 rounded-full mr-3" />}
+              {m.avatar && <img src={`/scenarios/${scenario?.id}/avatars/${m.avatar}`} alt={m.name} className="w-8 h-8 rounded-full mr-3" />}
               <span className="font-bold">{m.name}</span>
               <span className="ml-2 text-sm text-gray-600">({m.role})</span>
               {m.supervisorId && <span className="ml-2 text-xs text-gray-400">上司: {m.supervisorId}</span>}

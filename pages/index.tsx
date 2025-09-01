@@ -33,7 +33,7 @@ export default function Home() {
           <MainPanel
             scenarioId={scenarioId}
             onSelectScenario={setScenarioId}
-            scenario={scenario}
+            scenario={scenario ?? undefined}
             members={members}
           />
         </div>
