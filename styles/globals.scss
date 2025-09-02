@@ -37,3 +37,70 @@
     }
   }
 }
+
+@media print {
+  body {
+    background: white;
+    color: black;
+    font-size: 12pt;
+  }
+
+  /* 全体コンテナ */
+  .app-container {
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* メインカードを縦並びに */
+  .card {
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* MainPanel部分を上部に */
+  .col-span-1 {
+    /* 印刷時は全幅に */
+    width: 100%;
+    overflow: visible !important;
+    height: auto !important;
+    margin-bottom: 1rem;
+    page-break-inside: avoid;
+  }
+
+  /* チャット部分を下部に */
+  .col-span-2 {
+    width: 100%;
+    overflow: visible !important;
+    height: auto !important;
+    page-break-inside: avoid;
+  }
+
+  .chatpanel {
+    /* 印刷時は全幅に */
+    width: 100%;
+    overflow: visible !important;
+    height: auto !important;
+    background-color: #fff !important;
+    // page-break-inside: avoid;
+  }
+
+  /* チャット入力インターフェイスを隠す */
+  /* たとえば chat-input というclassを付けているなら */
+  .chat-input, /* 入力部分のクラス名をここに追加 */
+  textarea,
+  input,
+  button {
+    display: none !important;
+  }
+
+  /* スクロールバー不要 */
+  ::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* ページ改行制御 */
+  /* block要素が印刷ページ跨ぎしないように */
+  h1, h2, h3, p, ul, ol, li, div {
+    page-break-inside: avoid;
+  }
+}

@@ -264,7 +264,7 @@ export default function ChatPanel({ scenario, messages, setMessages }: ChatPanel
     <div className="flex flex-col h-full max-h-full">
       <div
         ref={containerRef}
-        className="flex-1 bg-black mb-4 overflow-y-auto max-h-[60vh] p-2 border rounded"
+        className="chatpanel flex-1 bg-black mb-4 overflow-y-auto max-h-[60vh] p-2 border rounded"
       >
         {messages.map((m, i) => (
           <div
