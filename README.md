@@ -1,6 +1,6 @@
 # Chat RPG - Multi-Agent Meeting Simulator
 
-このリポジトリは、OpenAI (GPT-4o/GPT-5等) および Google Gemini を活用した多人数ロールプレイ・チャット会議ゲーム雛形です。  
+このリポジトリは、OpenAIおよび Google Gemini、Ollamaを活用した多人数ロールプレイ・チャット会議シミュレーターです。  
 Next.js + React + TypeScript + Tailwind CSS構成で、シナリオはXMLで管理し、複数NPC＋プレイヤーが独立したコンテキスト/権限で会議できます。
 
 ![Chat-commander起動画面](resources/images/chat-commander.png)
@@ -14,6 +14,7 @@ Next.js + React + TypeScript + Tailwind CSS構成で、シナリオはXMLで管�
 - シナリオの切り替え、任意の会議設定に対応
 - 日本語IME対応の入力環境
 - ストリーム形式のレスポンス逐次表示
+- チャットタイムラインの印刷機能
 
 ---
 
@@ -22,8 +23,6 @@ Next.js + React + TypeScript + Tailwind CSS構成で、シナリオはXMLで管�
 - **シナリオはすべて `public/scenarios/<ID>/scenario.json` に定義** されています。  
   - NPCメンバー情報、初期メッセージやシナリオ固有の付帯情報（例：ROE）もここに記述します。  
   - シナリオJSON配下の画像ファイル（avatar）は同フォルダ内に格納し、ファイル名のみをJSONに記載します。
-
-- **lib/npcs.tsは廃止され、全てシナリオJSONに一本化しました。**
 
 ---
 
