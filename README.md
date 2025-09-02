@@ -18,6 +18,39 @@ Next.js + React + TypeScript + Tailwind CSS構成で、シナリオはXMLで管�
 
 ---
 
+## 導入方法
+
+### 1. リポジトリをクローンする
+
+```bash
+git clone <リポジトリのURL>
+cd <リポジトリフォルダ名>
+```
+
+### 2. 依存パッケージをインストールする（npmを使用）
+
+```bash
+npm install
+```
+
+### 3. 開発サーバーを起動する
+
+```bash
+npm run dev
+```
+
+Next.js開発サーバーがデフォルトで http://localhost:3000 にて起動します。
+
+### 4. ブラウザでアクセス
+
+お好きなブラウザで以下のURLにアクセスしてください。
+
+```
+http://localhost:3000
+```
+
+---
+
 ## 現在のシナリオ管理
 
 - **シナリオはすべて `public/scenarios/<ID>/scenario.json` に定義** されています。  

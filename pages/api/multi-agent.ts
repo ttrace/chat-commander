@@ -116,9 +116,20 @@ export default async function handler(
         const disclaimer = scenario?.disclaimer;
         const behavior = scenario?.behavior;
         const excludeKeys = ["disclaimer", "behavior"];
-        const knowledge = Object.fromEntries(
-          Object.entries(scenario).filter(([key]) => !excludeKeys.includes(key))
+        const sanitizedMembers = (scenario.members ?? []).map(
+          ({ persona, ...rest }: Member) => rest
         );
+        
+        // scenarioのその他のキーを抽出（membersは除外）
+        const otherEntries = Object.entries(scenario).filter(
+          ([key]) => !excludeKeys.includes(key) && key !== "members"
+        );
+
+        // knowledgeオブジェクトを生成
+        const knowledge = Object.fromEntries(otherEntries);
+
+        // membersにpersona削除版をセット
+        knowledge.members = sanitizedMembers;
 
         console.log("[buildMessages] Disclaimer", disclaimer);
         messagesForBackend = provider.buildMessages({
@@ -126,7 +137,7 @@ export default async function handler(
           baseContext,
           disclaimer,
           behavior,
-          knowledge
+          knowledge,
         });
 
         // if (structured) {
