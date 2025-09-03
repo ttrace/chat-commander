@@ -23,7 +23,7 @@ Next.js + React + TypeScript + Tailwind CSS構成で、シナリオはXMLで管�
 ### 1. リポジトリをクローンする
 
 ```bash
-git clone <リポジトリのURL>
+git clone https://github.com/ttrace/chat-commander.git
 cd <リポジトリフォルダ名>
 ```
 
