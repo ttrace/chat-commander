@@ -3,3 +3,12 @@ node_modules
 .env.local
 .env
 .DS_Store
+
+# public/scenarios 以下をすべて無視
+/public/scenarios/*
+
+# ただし 初期サンプルのフォルダとその中身は除外する
+!public/scenarios/op_damascus_suburb/
+!public/scenarios/op_damascus_suburb/**
+!public/scenarios/trolley_case_v1/
+!public/scenarios/trolley_case_v1/** */
