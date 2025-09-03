@@ -14,7 +14,36 @@
 - 生成モデルプロバイダ（OpenAI, Gemini, Ollama）はシナリオ（scenario）オブジェクトごとフロントから渡す方式で、API サーバ側でディスクI/O再読み込みしない。
 ---
 
+---
 ## ディレクトリ・ファイル構成と主な役割
+
+- components/
+  - MainPanel.tsx: シナリオ選択メニュー、会議メンバー表示などのメインUIパネルを提供。折りたたみ式の会議詳細セクションも含む。
+  - ModelSelectorPanel.tsx: モデル選択に関するUIパネルを提供。バックエンドやモデル種別の切り替えを管理。
+
+- lib/providers/
+  - openai.ts, ollama.ts, gemini.ts: 各LLMプロバイダ向けの会議メッセージ構築ロジックを実装。npcやコンテキストを元にchat API用メッセージ配列を生成。
+
+- pages/
+  - api/multi-agent.ts: マルチエージェント会議APIの一部。ユーティリティ関数やAPIエンドポイントを含む。
+  - index.tsx: ルートページ。シナリオ選択・会議メンバー・チャットパネルを統括し、状態管理を行う。
+
+- public/scenarios/
+  - <ID>/scenario.json: シナリオデータのJSON形式ファイル。メンバー・タイトル・初期メッセージ等を格納。
+  - <ID>/<avatar>: シナリオごとのアバター画像。
+
+- styles/
+  - globals.scss: プロジェクト全体のスタイル定義。
+
+- types/
+  - index.ts: TypeScript型定義。Message, Member, Scenarioなどを定義。
+
+---
+
+その他、プロジェクト全体はNext.js+React+TypeScript+Tailwind CSSで構成され、多人数エージェントチャットRPG会議シミュレーターの実装であること。
+免責事項として、日本語IME入力の特定ロジックは絶対変更しない注意書きがある。
+
+```
 
 ### フロントエンド
 
