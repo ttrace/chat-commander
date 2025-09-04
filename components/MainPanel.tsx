@@ -1,7 +1,6 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import type { Member, Scenario } from '../types';
 
-// 折りたたみセクションコンポーネント
 function CollapsibleSection({ title, children }: { title: string; children: React.ReactNode }) {
   const [isOpen, setIsOpen] = useState(false);
   const toggle = useCallback(() => setIsOpen(v => !v), []);
@@ -38,12 +37,12 @@ function MainPanel({ scenarioId, onSelectScenario, scenario, members = [] }: Mai
       .catch(() => setScenarioList([]));
   }, []);
 
-  // 免責（固定の簡単な文言例）
+  // 免責：scenario.disclaimerがあれば表示、なければデフォルト文
   const disclaimer = useMemo(() => (
     <p className="text-sm text-gray-700">
-      ここに免責事項の内容を記載します。会議内容の取り扱いにご注意ください。
+      {scenario?.disclaimer ?? 'ここに免責事項の内容を記載します。会議内容の取り扱いにご注意ください。'}
     </p>
-  ), []);
+  ), [scenario?.disclaimer]);
 
   // それ以外の情報（ダミー内容）
   const otherInfo = useMemo(() => (

@@ -242,7 +242,7 @@ export default async function handler(
           // console.log(
           //   `[multi-agent] Starting stream for npcId=${id} backend=${backendKey}`
           // );
-          console.log(messagesWithJson);
+          // console.log(messagesWithJson);
           for await (const chunk of provider.callStream({
             model,
             messages: messagesWithJson,
