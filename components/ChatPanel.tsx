@@ -1,13 +1,14 @@
 import { useState, useRef, useEffect, KeyboardEvent } from "react";
-// import { NPCS } from "../lib/npcs";
-import ModelSelectorPanel from "./ModelSelectorPanel";
 import type { Member, Message } from "../types";
+import type { Backend } from "../types";
 
 type ChatPanelProps = {
   scenario?: any;
   messages: Message[];
   setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
-  // 他にも必要なpropsがあればここに追記
+  backend: Backend;
+  ollamaModel: string;
+  // 必要なら他のpropsを追加
 };
 
 async function startMultiAgentStream(
@@ -53,7 +54,7 @@ async function startMultiAgentStream(
   onDone?.();
 }
 
-export default function ChatPanel({ scenario, messages, setMessages }: ChatPanelProps) {
+export default function ChatPanel({ scenario, messages, setMessages, backend, ollamaModel }: ChatPanelProps) {
   const initialMessages: Message[] =
     scenario &&
     Array.isArray(scenario.initialMessages) &&
@@ -73,9 +74,6 @@ export default function ChatPanel({ scenario, messages, setMessages }: ChatPanel
   const isComposingRef = useRef(false);
   const justComposedRef = useRef(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [backend, setBackend] = useState<"openai" | "gemini" | "ollama">("openai");
-  const [ollamaModel, setOllamaModel] = useState<string>("gemma3:4b");
-  const [selectorOpen, setSelectorOpen] = useState(false);
   const [highlightNpcId, setHighlightNpcId] = useState<string | null>(null);
   const [isInputFocused, setIsInputFocused] = useState(false);
 
@@ -338,23 +336,6 @@ export default function ChatPanel({ scenario, messages, setMessages }: ChatPanel
           </button>
         ))}
       </div>
-
-      <div className="flex items-center mt-2">
-        <button
-          className="border px-2 py-1 rounded"
-          onClick={() => setSelectorOpen(true)}
-        >
-          モデル選択
-        </button>
       </div>
-      <ModelSelectorPanel
-        open={selectorOpen}
-        onClose={() => setSelectorOpen(false)}
-        backend={backend}
-        setBackend={setBackend}
-        ollamaModel={ollamaModel}
-        setOllamaModel={setOllamaModel}
-      />
-    </div>
   );
 }

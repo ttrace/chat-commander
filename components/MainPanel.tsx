@@ -1,5 +1,6 @@
-import { useEffect, useState, useCallback, useMemo } from 'react';
-import type { Member, Scenario } from '../types';
+import React, { useEffect, useState, useCallback, useMemo } from "react";
+import type { Member, Scenario, Backend } from "../types";
+import ModelSelectorPanel from "./ModelSelectorPanel";
 
 function CollapsibleSection({ title, children }: { title: string; children: React.ReactNode }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -24,12 +25,28 @@ type MainPanelProps = {
   onSelectScenario: (id: string) => void;
   scenario?: Scenario;
   members?: Member[];
+  selectorOpen: boolean;
+  setSelectorOpen: (v: boolean) => void;
+  backend: Backend;
+  setBackend: (b: Backend) => void;
+  ollamaModel: string;
+  setOllamaModel: (m: string) => void;
 };
 
-function MainPanel({ scenarioId, onSelectScenario, scenario, members = [] }: MainPanelProps) {
-  const [scenarioList, setScenarioList] = useState<ScenarioListItem[]>([]); // シナリオ選択メニュー用
+export default function MainPanel({
+  scenarioId,
+  onSelectScenario,
+  scenario,
+  members = [],
+  selectorOpen,
+  setSelectorOpen,
+  backend,
+  setBackend,
+  ollamaModel,
+  setOllamaModel
+}: MainPanelProps) {
+  const [scenarioList, setScenarioList] = useState<ScenarioListItem[]>([]);
 
-  // シナリオ選択メニュー用のシナリオ一覧取得
   useEffect(() => {
     fetch('/api/scenario-list')
       .then(res => res.ok ? res.json() : Promise.reject(res.statusText))
@@ -37,21 +54,18 @@ function MainPanel({ scenarioId, onSelectScenario, scenario, members = [] }: Mai
       .catch(() => setScenarioList([]));
   }, []);
 
-  // 免責：scenario.disclaimerがあれば表示、なければデフォルト文
   const disclaimer = useMemo(() => (
     <p className="text-sm text-gray-700">
       {scenario?.disclaimer ?? 'ここに免責事項の内容を記載します。会議内容の取り扱いにご注意ください。'}
     </p>
   ), [scenario?.disclaimer]);
 
-  // それ以外の情報（ダミー内容）
   const otherInfo = useMemo(() => (
     <p className="text-sm text-gray-700">
       会議に関連するその他の情報をここに表示します。
     </p>
   ), []);
 
-  // タイムライン（ダミー内容）
   const timeline = useMemo(() => (
     <p className="text-sm text-gray-700">
       会議のタイムラインをここに表示します。
@@ -61,12 +75,13 @@ function MainPanel({ scenarioId, onSelectScenario, scenario, members = [] }: Mai
   return (
     <div className="main-panel p-4">
       {/* シナリオ選択メニュー（最上部） */}
-      <div className="mb-3">
+      <div className="flex items-center mt-2 mb-3">
         <label htmlFor="scenario-select" className="font-bold mr-2">シナリオ選択: </label>
         <select
           id="scenario-select"
-          value={scenarioId || ''}
+          value={scenarioId || ""}
           onChange={e => onSelectScenario(e.target.value)}
+          className="mr-4"
         >
           <option value="" disabled>シナリオを選択</option>
           {scenarioList.map((s) => (
@@ -75,6 +90,20 @@ function MainPanel({ scenarioId, onSelectScenario, scenario, members = [] }: Mai
             </option>
           ))}
         </select>
+        <button
+          className="border px-2 py-1 rounded mr-4"
+          onClick={() => setSelectorOpen(true)}
+        >
+          モデル選択
+        </button>
+        <ModelSelectorPanel
+          open={selectorOpen}
+          onClose={() => setSelectorOpen(false)}
+          backend={backend}
+          setBackend={setBackend}
+          ollamaModel={ollamaModel}
+          setOllamaModel={setOllamaModel}
+        />
       </div>
 
       {/* 会議詳細 折りたたみセクション群 */}
@@ -84,7 +113,6 @@ function MainPanel({ scenarioId, onSelectScenario, scenario, members = [] }: Mai
         </CollapsibleSection>
 
         <CollapsibleSection title="2. 会議メンバー">
-          {/* 会議メンバー（既存コードを保持） */}
           {members.length === 0 && <div className="text-gray-500">メンバー情報なし</div>}
           <ul>
             {members.map((m) => (
@@ -110,4 +138,3 @@ function MainPanel({ scenarioId, onSelectScenario, scenario, members = [] }: Mai
   );
 }
 
-export default MainPanel;

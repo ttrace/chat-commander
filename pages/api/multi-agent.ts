@@ -151,10 +151,9 @@ export default async function handler(
         ];
 
         // 例: npcループ内でメッセージ生成直後
-        // console.log(
-        //   `[multi-agent sending] npcId=${id} backend=${backendKey} messagesWithJson:`,
-        //   messagesWithJson
-        // );
+        console.log(
+          `[multi-agent sending] npcId=${id} backend=${backendKey}`
+        );
 
         // try {
         //   if (!provider.callSync) {
