@@ -140,7 +140,7 @@ async function* callStream({
     buffer = lines.pop() || ""; // 未完結の行は次回へ保持
 
     for (const line of lines) {
-      console.log("[ollama] line:", line);
+      // console.log("[ollama] line:", line); // デバッグ用 ollamaの生データ確認
       if (!line.trim()) continue;
       try {
         const obj = JSON.parse(line);

@@ -1,6 +1,5 @@
 import type { Dispatch, SetStateAction } from "react";
-
-type Backend = "openai" | "gemini" | "ollama";
+import type { Backend } from "../types";
 
 function ModelSelectorPanel({
   open,
@@ -13,7 +12,8 @@ function ModelSelectorPanel({
   open: boolean;
   onClose: () => void;
   backend: Backend;
-  setBackend: Dispatch<SetStateAction<Backend>>;
+  // setBackend: Dispatch<SetStateAction<Backend>>;
+  setBackend: (backend: Backend) => void;
   ollamaModel: string;
   setOllamaModel: (model: string) => void;
 }) {

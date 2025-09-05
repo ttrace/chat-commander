@@ -151,10 +151,9 @@ export default async function handler(
         ];
 
         // 例: npcループ内でメッセージ生成直後
-        // console.log(
-        //   `[multi-agent sending] npcId=${id} backend=${backendKey} messagesWithJson:`,
-        //   messagesWithJson
-        // );
+        console.log(
+          `[multi-agent sending] npcId=${id} backend=${backendKey}`
+        );
 
         // try {
         //   if (!provider.callSync) {
@@ -242,7 +241,7 @@ export default async function handler(
           // console.log(
           //   `[multi-agent] Starting stream for npcId=${id} backend=${backendKey}`
           // );
-          console.log(messagesWithJson);
+          // console.log(messagesWithJson);
           for await (const chunk of provider.callStream({
             model,
             messages: messagesWithJson,

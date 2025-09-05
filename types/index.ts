@@ -14,6 +14,9 @@ export type Member = {
   supervisorId?: string;
 };
 
+// 追加: モデルバックエンド（プロジェクト全体で統一）
+export type Backend = "openai" | "gemini" | "ollama";
+
 // シナリオ本体の型（拡張性重視。必要で追記）
 export type Scenario = {
   id: string;

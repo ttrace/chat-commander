@@ -1,7 +1,10 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import MainPanel from "../components/MainPanel";
 import ChatPanel from "../components/ChatPanel";
-import type { Message, Member, Scenario } from '../types';
+import { Scenario, Member, Message, Backend } from "../types";
+
+// import ModelSelectorPanel from "../components/ModelSelectorPanel"; // ← 未使用のため削除
+// import OpenAI from "openai"; // ← 未使用のため削除
 
 export default function Home() {
   // シナリオID・データ・メンバーリスト用state
@@ -9,6 +12,11 @@ export default function Home() {
   const [scenario, setScenario] = useState<Scenario | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
+
+  // モデル選択関連 state（index.tsx にて管理）
+  const [selectorOpen, setSelectorOpen] = useState(false);
+  const [backend, setBackend] = useState<Backend>("openai");
+  const [ollamaModel, setOllamaModel] = useState("ollama:latest");
 
   // シナリオ変更時のデータ取得
   useEffect(() => {
@@ -18,7 +26,7 @@ export default function Home() {
       .then((json: Scenario) => {
         setScenario(json);
         setMembers(json.members ?? []);
-        setMessages(json.initialMessages ?? []); // ← 初期メッセージもここでセット
+        setMessages(json.initialMessages ?? []);
       })
       .catch(() => {
         setScenario(null);
@@ -35,11 +43,23 @@ export default function Home() {
             onSelectScenario={setScenarioId}
             scenario={scenario ?? undefined}
             members={members}
+            selectorOpen={selectorOpen}
+            setSelectorOpen={setSelectorOpen}
+            backend={backend}
+            setBackend={setBackend}
+            ollamaModel={ollamaModel}
+            setOllamaModel={setOllamaModel}
           />
         </div>
         <div className="col-span-2 flex flex-col">
           <h1 className="text-2xl font-bold mb-4">対策会議室</h1>
-          <ChatPanel scenario={scenario} messages={messages} setMessages={setMessages} />
+          <ChatPanel
+            scenario={scenario}
+            messages={messages}
+            setMessages={setMessages}
+            backend={backend}          // 追加: ChatPanelへ渡す
+            ollamaModel={ollamaModel}  // 追加: ChatPanelへ渡す
+          />
         </div>
       </div>
     </div>
