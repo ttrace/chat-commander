@@ -1,5 +1,11 @@
 @import "./_base.scss";
 
+:root {
+  --badge-color-openai: #3b82f6; /* blue-500 */
+  --badge-color-gemini: #10b981; /* green-500 */
+  --badge-color-ollama: #f59e0b; /* amber-500 */
+}
+
 // Project-level custom styles
 .app-container {
   @apply h-screen min-h-screen max-h-screen bg-gradient-to-b from-sky-100 to-white p-8;
@@ -59,6 +65,18 @@
       user-select: none; /* 選択防止 */
       z-index: 10;
       white-space: nowrap; /* 改行しない */
+    }
+
+    &[data-backend="openai"]::after {
+      background-color: var(--badge-color-openai);
+    }
+
+    &[data-backend="gemini"]::after {
+      background-color: var(--badge-color-gemini);
+    }
+
+    &[data-backend="ollama"]::after {
+      background-color: var(--badge-color-ollama);
     }
   }
 }
