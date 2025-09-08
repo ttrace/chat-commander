@@ -83,12 +83,19 @@ export default function ChatPanel({
   const [highlightNpcId, setHighlightNpcId] = useState<string | null>(null);
   const [isInputFocused, setIsInputFocused] = useState(false);
 
+  const runMultiAgentRef = useRef<typeof runMultiAgent | null>(null);
+  useEffect(() => {
+    runMultiAgentRef.current = runMultiAgent;
+  }, [runMultiAgent]);
+
   useEffect(() => {
     function globalKeyDown(e: KeyboardEvent) {
       if (isInputFocused) return;
       if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
         if (highlightNpcId) {
-          runMultiAgent([highlightNpcId], 1);
+          // runMultiAgent([highlightNpcId], 1);
+          runMultiAgentRef.current?.([highlightNpcId], 1);
+
           setHighlightNpcId(null);
         }
       }
