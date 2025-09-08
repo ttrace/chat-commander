@@ -38,6 +38,31 @@
   }
 }
 
+.message-container {
+  position: relative;
+
+  /* 発言バッジの共通スタイル */
+  .avatar {
+    position: relative; // バッジのためにrelative指定
+    &::after {
+      content: attr(data-backend);
+      position: absolute; /* 親要素内で絶対配置 */
+      bottom: -0.25rem; /* 親の右上あたり */
+      right: 0.25rem;
+      background-color: #3182ce; /* 青色 (Tailwindのblue-600相当) */
+      color: white;
+      font-size: 0.6rem; /* 小さめの文字サイズ */
+      padding: 0.1rem 0.4rem;
+      border-radius: 0.5rem; /* 丸めの角 */
+      font-weight: 600;
+      pointer-events: none; /* クリックを通す */
+      user-select: none; /* 選択防止 */
+      z-index: 10;
+      white-space: nowrap; /* 改行しない */
+    }
+  }
+}
+
 @media print {
   body {
     background: white;
@@ -89,8 +114,11 @@
   .chat-input, /* 入力部分のクラス名をここに追加 */
   textarea,
   input,
-  button {
+  button,
+  nextjs-portal,
+  nextjs-portal * {
     display: none !important;
+    visibility: hidden !important;
   }
 
   /* スクロールバー不要 */
@@ -100,7 +128,14 @@
 
   /* ページ改行制御 */
   /* block要素が印刷ページ跨ぎしないように */
-  h1, h2, h3, p, ul, ol, li, div {
+  h1,
+  h2,
+  h3,
+  p,
+  ul,
+  ol,
+  li,
+  div {
     page-break-inside: avoid;
   }
 }

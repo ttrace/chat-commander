@@ -54,7 +54,13 @@ async function startMultiAgentStream(
   onDone?.();
 }
 
-export default function ChatPanel({ scenario, messages, setMessages, backend, ollamaModel }: ChatPanelProps) {
+export default function ChatPanel({
+  scenario,
+  messages,
+  setMessages,
+  backend,
+  ollamaModel,
+}: ChatPanelProps) {
   const initialMessages: Message[] =
     scenario &&
     Array.isArray(scenario.initialMessages) &&
@@ -132,7 +138,17 @@ export default function ChatPanel({ scenario, messages, setMessages, backend, ol
         .map((id) => {
           const who = `npc:${id}`;
           if (prev.length > 0 && prev[prev.length - 1].who === who) return null;
-          return { who, text: "" };
+          return {
+            who,
+            text: "",
+            backend, // props から来る値
+            model:
+              backend === "ollama"
+                ? ollamaModel
+                : backend === "gemini"
+                ? "gemini-2.5-flash"
+                : undefined,
+          } as Message;
         })
         .filter(Boolean);
       return [...prev, ...(toAdd as Message[])];
@@ -175,7 +191,7 @@ export default function ChatPanel({ scenario, messages, setMessages, backend, ol
               ? "gemini-2.5-flash"
               : undefined,
           structured: true,
-          scenario
+          scenario,
         },
         (evt) => {
           if (evt.error) {
@@ -218,7 +234,9 @@ export default function ChatPanel({ scenario, messages, setMessages, backend, ol
           }
           if (delta !== undefined && who) {
             setMessages((prev) => {
-              const idx = prev.map((m) => m.who).lastIndexOf(who as Message["who"]);
+              const idx = prev
+                .map((m) => m.who)
+                .lastIndexOf(who as Message["who"]);
               if (idx >= 0 && idx === prev.length - 1) {
                 const copy = [...prev];
                 copy[idx] = {
@@ -227,7 +245,7 @@ export default function ChatPanel({ scenario, messages, setMessages, backend, ol
                 };
                 return copy;
               }
-              return [...prev, { who: who as Message['who'], text: delta! }];
+              return [...prev, { who: who as Message["who"], text: delta! }];
             });
           }
         },
@@ -267,16 +285,24 @@ export default function ChatPanel({ scenario, messages, setMessages, backend, ol
         {messages.map((m, i) => (
           <div
             key={i}
-            className={`flex ${
+            className={`message-container flex ${
               m.who === "user" ? "justify-end" : "justify-start"
             } mb-2 items-end`}
           >
             {typeof m.who === "string" && m.who.startsWith("npc:") && (
-              <img
-              src={`/scenarios/${scenario.id}/avatars/${NPCS.find((n: Member) => `npc:${n.id}` === m.who)?.avatar}`}
-                alt="avatar"
-                className="w-24 h-24 rounded-md mr-2"
-              />
+              <div
+                className="avatar"
+                data-backend={m.backend ?? ""}
+                data-model={m.model ?? ""}
+              >
+                <img
+                  src={`/scenarios/${scenario.id}/avatars/${
+                    NPCS.find((n: Member) => `npc:${n.id}` === m.who)?.avatar
+                  }`}
+                  alt="avatar"
+                  className="w-24 h-24 rounded-md mr-2"
+                />
+              </div>
             )}
             <div
               className={`${
@@ -331,11 +357,14 @@ export default function ChatPanel({ scenario, messages, setMessages, backend, ol
                 : "")
             }
           >
-            <img src={`/scenarios/${scenario.id}/avatars/${n.avatar}`} className="w-6 h-6 rounded-full" />
+            <img
+              src={`/scenarios/${scenario.id}/avatars/${n.avatar}`}
+              className="w-6 h-6 rounded-full"
+            />
             <span>{n.name}に喋らせる</span>
           </button>
         ))}
       </div>
-      </div>
+    </div>
   );
 }

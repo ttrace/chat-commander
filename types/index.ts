@@ -1,7 +1,11 @@
 // メッセージ（チャット1件）の型
+export type Backend = "openai" | "gemini" | "ollama";
+
 export type Message = {
   who: "user" | "system" | `npc:${string}` | "assistant";
-  text: string
+  text: string;
+  backend?: Backend;
+  model?: string;
 };
 
 // 登場人物（メンバー/NPC/エージェント）
@@ -13,9 +17,6 @@ export type Member = {
   avatar?: string;
   supervisorId?: string;
 };
-
-// 追加: モデルバックエンド（プロジェクト全体で統一）
-export type Backend = "openai" | "gemini" | "ollama";
 
 // シナリオ本体の型（拡張性重視。必要で追記）
 export type Scenario = {
