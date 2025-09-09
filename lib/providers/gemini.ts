@@ -38,13 +38,13 @@ function buildMessages({
 }) {
   return [
     { role: "system", content: disclaimer },
-    { role: "system", content: behavior?.join("\n") || "" },
     { role: "system", content: npc.persona },
+    { role: "system", content: behavior?.join("\n") || "" },
     { role: "system", content: JSON.stringify(knowledge) },
     ...baseContext.map((m) => ({
-      role: m.role === "user" ? "user" : "assistant",
+      role: m.role === "user" ? "system" : "assistant",
       who: m.who,
-      content: m.content,
+      content: `${m.who}の発言：${m.content}`,
     })),
   ];
 }
@@ -126,6 +126,7 @@ async function* callStream({
     config: { responseMimeType: "application/json", responseSchema: schema },
   });
   for await (const chunk of responseStream) {
+    // console.log("[gemini stream chunk]", chunk.text);
     const text = (chunk as any).text ?? "";
     if (text) yield { text };
   }

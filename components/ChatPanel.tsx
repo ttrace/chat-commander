@@ -8,6 +8,7 @@ type ChatPanelProps = {
   setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
   backend: Backend;
   ollamaModel: string;
+  members?: Member[];
   // 必要なら他のpropsを追加
 };
 
@@ -60,6 +61,7 @@ export default function ChatPanel({
   setMessages,
   backend,
   ollamaModel,
+  members,
 }: ChatPanelProps) {
   const initialMessages: Message[] =
     scenario &&
@@ -162,10 +164,10 @@ export default function ChatPanel({
     });
 
     const messagesArray = messages.map((m) => {
-      if (m.who === "user") {
+      if (m.who === "system") {
         return {
-          role: "user",
-          content: `【ゲームプレイヤー発言】${m.text}`,
+          role: "system",
+          content: `【管理者発言】${m.text}`,
           who: "user",
         };
       } else if (typeof m.who === "string" && m.who.startsWith("npc:")) {
@@ -232,7 +234,7 @@ export default function ChatPanel({
           ) {
             delta = evt.utterance;
             if (evt.next_speaker === "player") {
-              who = "user";
+              who = "system";
               setHighlightNpcId(null);
             } else {
               who = `npc:${evt.agentId}`;
@@ -296,21 +298,32 @@ export default function ChatPanel({
               m.who === "user" ? "justify-end" : "justify-start"
             } mb-2 items-end`}
           >
-            {typeof m.who === "string" && m.who.startsWith("npc:") && (
-              <div
-                className="avatar"
-                data-backend={m.backend ?? ""}
-                data-model={m.model ?? ""}
-              >
-                <img
-                  src={`/scenarios/${scenario.id}/avatars/${
-                    NPCS.find((n: Member) => `npc:${n.id}` === m.who)?.avatar
-                  }`}
-                  alt="avatar"
-                  className="w-24 h-24 rounded-md mr-2"
-                />
-              </div>
-            )}
+            {typeof m.who === "string" &&
+              m.who.startsWith("npc:") &&
+              (() => {
+                const memberId = m.who.replace(/^npc:/, "");
+                const member = members?.find(
+                  (mem) => mem.id === memberId
+                );
+                const backend = member?.backend ?? m.backend ?? "";
+                const model = member?.model ?? m.model ?? "";
+                return (
+                  <div
+                    className="avatar"
+                    data-backend={backend ?? ""}
+                    data-model={model ?? ""}
+                  >
+                    <img
+                      src={`/scenarios/${scenario.id}/avatars/${
+                        NPCS.find((n: Member) => `npc:${n.id}` === m.who)
+                          ?.avatar
+                      }`}
+                      alt="avatar"
+                      className="w-24 h-24 rounded-md mr-2"
+                    />
+                  </div>
+                );
+              })()}
             <div
               className={`${
                 m.who === "user"

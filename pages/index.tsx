@@ -59,6 +59,7 @@ export default function Home() {
             setMessages={setMessages}
             backend={backend}          // 追加: ChatPanelへ渡す
             ollamaModel={ollamaModel}  // 追加: ChatPanelへ渡す
+            members={members}         // 追加: ChatPanelへ渡す
           />
         </div>
       </div>

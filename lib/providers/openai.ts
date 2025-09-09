@@ -45,13 +45,13 @@ function buildMessages({
  
   return [
     { role: "system", content: disclaimer },
-    { role: "system", content: behavior?.join("\n") || "" },
     { role: "system", content: npc.persona },
+    { role: "system", content: behavior?.join("\n") || "" },
     { role: "system", content: JSON.stringify(knowledge) },
     ...baseContext.map((m) => ({
       role: m.role === "user" ? "user" : "assistant",
       who: m.who,
-      content: m.content,
+      content: `${m.who}の発言：${m.content}`,
     })),
   ];
 }
@@ -111,6 +111,7 @@ async function* callStream({
   });
   for await (const part of response) {
     const text = part.choices[0]?.delta?.content ?? "";
+    // console.log("[openai stream text]", text);
     if (text) yield { text };
   }
 }
