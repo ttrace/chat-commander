@@ -12,3 +12,5 @@ node_modules
 !public/scenarios/op_damascus_suburb/**
 !public/scenarios/trolley_case_v1/
 !public/scenarios/trolley_case_v1/** */
+!public/scenarios/devating/
+!public/scenarios/devating/** */

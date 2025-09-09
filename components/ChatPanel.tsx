@@ -164,10 +164,10 @@ export default function ChatPanel({
     });
 
     const messagesArray = messages.map((m) => {
-      if (m.who === "user") {
+      if (m.who === "system") {
         return {
-          role: "user",
-          content: `【ゲームプレイヤー発言】${m.text}`,
+          role: "system",
+          content: `【管理者発言】${m.text}`,
           who: "user",
         };
       } else if (typeof m.who === "string" && m.who.startsWith("npc:")) {
@@ -234,7 +234,7 @@ export default function ChatPanel({
           ) {
             delta = evt.utterance;
             if (evt.next_speaker === "player") {
-              who = "user";
+              who = "system";
               setHighlightNpcId(null);
             } else {
               who = `npc:${evt.agentId}`;

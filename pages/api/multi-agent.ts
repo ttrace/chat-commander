@@ -99,7 +99,6 @@ export default async function handler(
         const memberBackend = npc.backend ?? backend;
         const memberModel = npc.model ?? model;
 
-        
         if (!(memberBackend in PROVIDERS)) {
           sseWrite(res, {
             type: "error",
@@ -109,7 +108,7 @@ export default async function handler(
           });
           continue;
         }
-        
+
         const provider: Provider = PROVIDERS[memberBackend];
 
         let messagesForBackend;
@@ -151,7 +150,10 @@ export default async function handler(
         ];
 
         // 例: npcループ内でメッセージ生成直後
-        console.log(`[multi-agent sending] npcId=${id} backend=${backendKey} memberBackend=${memberBackend}`);
+        console.log(
+          `[multi-agent sending] npcId=${id} backend=${backendKey} memberBackend=${memberBackend}`
+        );
+        console.log(messagesWithJson);
 
         if (!provider.callStream) {
           sseWrite(res, {
@@ -203,9 +205,12 @@ export default async function handler(
             // console.log("[multi-agent] buffer:", buffer);
 
             let tailingText = "";
-            if (nextSpeakerMatch && backendKey === "gemini") {
-              tailingText = text.replace(/,[\s\S]*next_speaker[\s\S]*.*/g, "");
-              // console.log("Geminiの時の末尾削り", text, tailingText);
+            if (nextSpeakerMatch && memberBackend === "gemini") {
+              tailingText = text.replace(
+                /,[\s\S]*next_speaker[\s\S]*.*/g,
+                ""
+              );
+              console.log("末尾削り", tailingText);
             }
 
             if (utteranceMatch && !nextSpeakerMatch) {
@@ -218,7 +223,6 @@ export default async function handler(
                 type: "utterance",
                 agentId: id,
                 name: npc.name,
-                // delta: currentUtterance,
                 delta: text,
               });
             }
@@ -228,7 +232,6 @@ export default async function handler(
                 type: "utterance",
                 agentId: id,
                 name: npc.name,
-                // delta: currentUtterance,
                 delta: tailingText,
               });
             }

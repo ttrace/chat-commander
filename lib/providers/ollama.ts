@@ -35,13 +35,13 @@ function buildMessages({
 }) {
   return [
     { role: "system", content: disclaimer },
-    { role: "system", content: behavior?.join("\n") || "" },
     { role: "system", content: npc.persona },
+    { role: "system", content: behavior?.join("\n") || "" },
     { role: "system", content: JSON.stringify(knowledge) },
     ...baseContext.map((m) => ({
       role: m.role === "user" ? "user" : "assistant",
       who: m.who,
-      content: m.content,
+      content: `${m.who}の発言：${m.content}`,
     })),
   ];
 }
