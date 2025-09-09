@@ -16,6 +16,8 @@ export type Member = {
   persona?: string;
   avatar?: string;
   supervisorId?: string;
+  backend?: Backend; // 追加: 使用するバックエンド
+  model?: string;   // 追加: 使用するモデル
 };
 
 // シナリオ本体の型（拡張性重視。必要で追記）

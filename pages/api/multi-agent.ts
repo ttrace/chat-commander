@@ -1,21 +1,14 @@
 // pages/api/multi-agent.ts
 
 import type { NextApiRequest, NextApiResponse } from "next";
-// import { NPCS, COMMON_PROMPT } from "../../lib/npcs";
-import fs from "fs";
-import path from "path";
 import Ajv from "ajv";
 import { PROVIDERS, Provider } from "../../lib/providers/index";
 import type { Member, Scenario } from "../../types";
 
 const ajv = new Ajv();
-// const npcIds = NPCS.map((npc) => npc.id);
 function escapeRegex(str: string) {
   return str.replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&");
 }
-
-// // 例としてpatternをログで確認
-// console.log("NPC ID pattern for JSON Schema:", npcPattern);
 
 function extractJson(text: string): string | null {
   const m = text.match(/\{[\s\S]*\}/);
@@ -25,15 +18,6 @@ function extractJson(text: string): string | null {
 function sseWrite(res: NextApiResponse, obj: any) {
   res.write(`data: ${JSON.stringify(obj)}\n\n`);
 }
-
-// function loadScenarioXML(scenarioFile = "op_damascus_suburb.xml") {
-//   const scenarioPath = path.join(process.cwd(), "scenarios", scenarioFile);
-//   try {
-//     return fs.readFileSync(scenarioPath, "utf-8");
-//   } catch {
-//     return "";
-//   }
-// }
 
 export default async function handler(
   req: NextApiRequest,
@@ -104,13 +88,29 @@ export default async function handler(
   const baseContext = Array.isArray(context) ? context.slice() : [];
 
   const backendKey = backend as keyof typeof PROVIDERS;
-  const provider: Provider = PROVIDERS[backendKey];
   try {
     for (let r = 0; r < rounds; r++) {
       for (const id of npcIds) {
         const npc = scenario.members.find((n: Member) => n.id === id);
         // console.log("[multi-agent] Processing npcId=", npc, id);
         if (!npc) continue;
+
+        // Use member-specific backend/model if available, else fallback to global defaults
+        const memberBackend = npc.backend ?? backend;
+        const memberModel = npc.model ?? model;
+
+        
+        if (!(memberBackend in PROVIDERS)) {
+          sseWrite(res, {
+            type: "error",
+            agentId: id,
+            name: npc.name,
+            message: `Unsupported backend: ${memberBackend}`,
+          });
+          continue;
+        }
+        
+        const provider: Provider = PROVIDERS[memberBackend];
 
         let messagesForBackend;
         const disclaimer = scenario?.disclaimer;
@@ -119,7 +119,7 @@ export default async function handler(
         const sanitizedMembers = (scenario.members ?? []).map(
           ({ persona, ...rest }: Member) => rest
         );
-        
+
         // scenarioのその他のキーを抽出（membersは除外）
         const otherEntries = Object.entries(scenario).filter(
           ([key]) => !excludeKeys.includes(key) && key !== "members"
@@ -151,78 +151,7 @@ export default async function handler(
         ];
 
         // 例: npcループ内でメッセージ生成直後
-        console.log(
-          `[multi-agent sending] npcId=${id} backend=${backendKey}`
-        );
-
-        // try {
-        //   if (!provider.callSync) {
-        //     throw new Error(
-        //       `Provider ${backendKey} does not support sync call for structured mode`
-        //     );
-        //   }
-        //   const text = await provider.callSync({
-        //     model,
-        //     messages: messagesWithJson,
-        //   });
-
-        //   console.log(
-        //     `[multi-agent response] npcId=${id} backend=${backendKey} text:`,
-        //     text
-        //   );
-
-        //   const jsonStr = extractJson(text);
-        //   if (!jsonStr) {
-        //     sseWrite(res, {
-        //       type: "error",
-        //       agentId: id,
-        //       name: npc.name,
-        //       message: "No JSON found in LLM response",
-        //     });
-        //     continue;
-        //   }
-
-        //   let parsed;
-        //   try {
-        //     parsed = JSON.parse(jsonStr);
-        //   } catch (e) {
-        //     sseWrite(res, {
-        //       type: "error",
-        //       agentId: id,
-        //       name: npc.name,
-        //       message: "Invalid JSON from LLM",
-        //     });
-        //     continue;
-        //   }
-
-        //   if (!validateNextTurn(parsed)) {
-        //     sseWrite(res, {
-        //       type: "error",
-        //       agentId: id,
-        //       name: npc.name,
-        //       message: "Schema validation failed",
-        //       details: validateNextTurn.errors,
-        //     });
-        //   } else {
-        //     sseWrite(res, {
-        //       type: "structured",
-        //       agentId: id,
-        //       name: npc.name,
-        //       utterance: parsed.utterance,
-        //       next_speaker: parsed.next_speaker,
-        //     });
-        //   }
-        // } catch (err: any) {
-        //   sseWrite(res, {
-        //     type: "error",
-        //     agentId: id,
-        //     name: npc.name,
-        //     message: err.message || String(err),
-        //   });
-        // }
-
-        //   continue;
-        // }
+        console.log(`[multi-agent sending] npcId=${id} backend=${backendKey} memberBackend=${memberBackend}`);
 
         if (!provider.callStream) {
           sseWrite(res, {
