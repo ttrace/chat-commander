@@ -15,6 +15,7 @@ Next.js + React + TypeScript + Tailwind CSS構成で、シナリオはjsonで管
 - 日本語IME対応の入力環境
 - ストリーム形式のレスポンス逐次表示
 - チャットタイムラインの印刷機能
+- 会議情報は未実装
 
 ---
 
