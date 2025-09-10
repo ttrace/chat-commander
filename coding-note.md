@@ -51,11 +51,40 @@
     - backend?: Backend;
     - model?: string;
   - Message: { who: "user" | "system" | `npc:${string}` | "assistant", text: string, backend?: Backend, model?: string }
-  - Member: { id: string, name: string, role: string, persona?: string, avatar?: string, supervisorId?: string }
+  - Member: { id: string, name: string, role: string, persona?: string, avatar?: string, supervisorId?: string, backend?: Backend, model?: string }
   - Scenario: { id, title, version?, members?, initialMessages?, ...任意プロパティ }
 
   これにより各メッセージに「どのバックエンド／モデルで生成されたか」を保持できる。
 
+---
+
+## scenario.member の backend と model について
+
+- 各シナリオの `members` 配列の要素（メンバー）には、チャットAPIを呼び出す際に用いる LLMバックエンドおよびモデル指定をオプションで含めることができます。
+
+- プロパティ例：
+  ```json
+  {
+    "id": "GEMINI",
+    "name": "GEMINIさん",
+    "role": "ディベート参加者",
+    "avatar": "legal.png",
+    "backend": "gemini",
+    "model": "gemini-2.5-flash"
+  }
+  ```
+
+- **backend**
+  チャットプロバイダーを指定します。サポートされているのは主に `openai`, `gemini`, `ollama` などで、APIリクエスト実行時に切り替えを行います。
+
+- **model**
+  指定した backend 内でのモデル名を記述します。プロバイダーによりモデル名のフォーマットは異なりますが、例として `"gpt-4o"`, `"gemini-2.5-flash"`, `"ollama-v1"` などがあります。
+
+- このメンバー単位の指定により、複数NPCが同一会議内で異なるLLMバックエンドおよびモデルを用いて発言生成を行うことが可能です。
+
+- **指定がない場合はデフォルトの backend/model が使用されます。**
+
+- 実装上、APIリクエスト作成時にメンバーの `backend` と `model` を参照して適切なプロバイダーの呼び出しが選択されます。
 ---
 
 ## 変更概要・フロントエンド（実装方針・注意）
@@ -81,7 +110,6 @@
   - モデル選択の状態リフトアップ
     - `pages/index.tsx` が `selectorOpen`, `backend`, `ollamaModel` を保持し、`MainPanel` と `ChatPanel` に渡す。
     - `ModelSelectorPanel` は表示と変更UIを提供し、実際の状態はindex.tsxが管理する。
-
 ---
 
 ## メッセージへのメタ付与・バッジ表示

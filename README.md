@@ -1,7 +1,7 @@
-# Chat RPG - Multi-Agent Meeting Simulator
+# Chat commander - Multi-Agent Meeting Simulator
 
-このリポジトリは、OpenAIおよび Google Gemini、Ollamaを活用した多人数ロールプレイ・チャット会議シミュレーターです。  
-Next.js + React + TypeScript + Tailwind CSS構成で、シナリオはXMLで管理し、複数NPC＋プレイヤーが独立したコンテキスト/権限で会議できます。
+このリポジトリは、OpenAIおよび Google Gemini、Ollamaを活用した多人数チャット会議シミュレーターです。  
+Next.js + React + TypeScript + Tailwind CSS構成で、シナリオはjsonで管理し、複数NPC＋プレイヤーが独立したコンテキスト/権限で会議できます。
 
 ![Chat-commander起動画面](resources/images/chat-commander.png)
 
@@ -18,13 +18,29 @@ Next.js + React + TypeScript + Tailwind CSS構成で、シナリオはXMLで管�
 
 ---
 
-## 導入方法
+## シナリオ管理
+
+- シナリオは現在 `public/scenarios/` 以下にJSON形式で配置
+- 各シナリオ内の `members` には、NPCのID、役割、バックエンド（`backend`）、モデル（`model`）指定を含む
+- 複数LLMバックエンドを同時に利用可能で、多様な対話シミュレーションを実現
+
+---
+
+## メッセージ構造とコンテキスト構築
+
+- LLM APIに渡すメッセージは、`lib/providers/` 配下の各プロバイダーの `buildMessages` 関数で構築
+- システムメッセージにはシナリオの免責事項（`disclaimer`）、NPCのペルソナ（`persona`）、行動指針（`behavior`）、知識情報などを含む
+- 会話履歴の発言は発言者ID（`who`）を明記し、発言内容の先頭に `<who>の発言:` を付加して区別
+
+---
+
+## 利用方法
 
 ### 1. リポジトリをクローンする
 
 ```bash
 git clone https://github.com/ttrace/chat-commander.git
-cd <リポジトリフォルダ名>
+cd chat-commander
 ```
 
 ### 2. 依存パッケージをインストールする（npmを使用）
@@ -89,7 +105,15 @@ http://localhost:3000
 }
 ```
 
----
+--- 
+
+## 参考情報
+
+- 型定義はTypeScriptで管理
+- シナリオ切り替えやメンバープロフィール編集は `components/MainPanel.tsx`、モデル選択は `ModelSelectorPanel.tsx` で管理
+- API `/api/multi-agent` がバックエンドLLMとの通信を担当、チャットストリーム受信は `components/ChatPanel.tsx` の `startMultiAgentStream` 関数で行う
+
+--- 
 
 ## 開発上の注意
 
