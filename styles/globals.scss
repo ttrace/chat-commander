@@ -1,4 +1,6 @@
 @import "./_base.scss";
+@import "./print.scss";
+@import "./theme-cyberpunk.scss";
 
 :root {
   --badge-color-openai: #3b82f6; /* blue-500 */
@@ -12,16 +14,22 @@
 }
 
 .card {
-  @apply mx-auto bg-white h-full min-h-full max-h-full rounded-xl shadow p-6 grid grid-cols-3 gap-6;
+  @apply mx-auto h-full min-h-full max-h-full rounded-xl shadow p-6 grid grid-cols-3 gap-6;
+  background-color: var(--bg-color);
 }
 
 .chat-input {
   @apply flex-1 border rounded px-3 py-2;
 }
 
+.chatpanel {
+  height: calc(100% - 4em);
+  max-height: calc(100vh - 64px - 24px - 16px - 48px - 42px - 76px - 12px - 16px);
+}
+
 .next-speaker {
   position: relative; // バッジのためにrelative指定
-
+  background-color: var(--bg-elements-highlight);
   &::after {
     content: "⌘↩︎";
     position: absolute;
@@ -79,81 +87,127 @@
       background-color: var(--badge-color-ollama);
     }
   }
+
+  .message-baloon {
+    position: relative;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    border-radius: 8px;
+  }
 }
 
-@media print {
-  body {
-    background: white;
-    color: black;
-    font-size: 10pt;
+/* select要素をフラットボタン風に見せるCSS例 */
+.select-wrapper {
+  position: relative;
+  display: inline-block;
+
+  select {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    border: solid 1px var(--text-color);
+    background-color: var(--bg-elements);
+    // border-radius: 0.3em;
+    padding: 0em 2em 0em 0.5em; /* padding */
+  }
+  &:after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    right: 8px;
+    width: 0;
+    height: 0;
+    margin-top: -2px;
+    border-top: 5px solid var(--text-color);
+    border-right: 5px solid transparent;
+    border-left: 5px solid transparent;
+    pointer-events: none;
+  }
+}
+
+.main-panel-items {
+  button {
+    background-color: var(--bg-elements);
+  }
+}
+
+
+.app-container {
+  // デフォルトテーマ
+  --bg-color: white;
+  --text-color: black;
+  --bg-elements: rgb(243, 243, 243);
+  --bg-elements-highlight: yellow;
+  background-color: var(--bg-color);
+  color: var(--text-color);
+}
+
+.app-container.theme-cyberpunk {
+  --bg-color: #0f0f1a;
+  --bg-elements: rgb(35, 35, 101);
+  --bg-elements-highlight: rgb(135, 2, 2);
+  --bg-text-input: rgb(60, 60, 60);
+  --text-color: #00ffea;
+  --dark-mazenta: rgb(123, 1, 50);
+  --dark-blue: #214166;
+  --bright-mazenta: rgb(251, 69, 142);
+  --bright-blue: #288afa;
+  // 他ネオンカラーなど
+
+  .message-baloon {
+    position: relative;
+    z-index: 0;
+    // outline: solid 2px rgba(255, 107, 253, 0.5);
+    background: linear-gradient(
+      45deg,
+      var(--bright-blue),
+      var(--bright-mazenta)
+    );
+    box-shadow: 0px 10px 0px white;
+    border-radius: 0px;
+    clip-path: polygon(
+      1em 0%,
+      /* 左上斜めカット開始 */ 100% 0%,
+      100% calc(100% - 1em),
+      calc(100% - 1em) 100%,
+      0% 100%,
+      0% 1em /* 左下斜めカット開始 */
+    );
   }
 
-  /* 全体コンテナ */
-  .app-container {
-    display: flex;
-    flex-direction: column;
+  .message-baloon::before {
+    content: "";
+    position: absolute;
+    top: 3px;
+    bottom: 3px;
+    left: 3px;
+    right: 3px; /* borderの幅分だけ拡大 */
+    background: linear-gradient(
+      45deg,
+      var(--dark-mazenta),
+      var(--dark-blue)
+    );
+    z-index: -1;
+    clip-path: polygon(
+      1em 0%,
+      /* 左上斜めカット開始 */ 100% 0%,
+      100% calc(100% - 1em),
+      calc(100% - 1em) 100%,
+      0% 100%,
+      0% 1em /* 左下斜めカット開始 */
+    );
+    filter: blur(5px);
   }
 
-  /* メインカードを縦並びに */
-  .card {
-    display: flex;
-    flex-direction: column;
+  input {
+      background-color: var(--bg-textinput); /* お好みの色に変更 */
   }
+}
 
-  /* MainPanel部分を上部に */
-  .col-span-1 {
-    /* 印刷時は全幅に */
-    width: 100%;
-    overflow: visible !important;
-    height: auto !important;
-    margin-bottom: 1rem;
-    page-break-inside: avoid;
-  }
-
-  /* チャット部分を下部に */
-  .col-span-2 {
-    width: 100%;
-    overflow: visible !important;
-    height: auto !important;
-    page-break-inside: avoid;
-  }
-
-  .chatpanel {
-    /* 印刷時は全幅に */
-    width: 100%;
-    overflow: visible !important;
-    height: auto !important;
-    background-color: #fff !important;
-    // page-break-inside: avoid;
-  }
-
-  /* チャット入力インターフェイスを隠す */
-  /* たとえば chat-input というclassを付けているなら */
-  .chat-input, /* 入力部分のクラス名をここに追加 */
-  textarea,
-  input,
-  button,
-  nextjs-portal,
-  nextjs-portal * {
-    display: none !important;
-    visibility: hidden !important;
-  }
-
-  /* スクロールバー不要 */
-  ::-webkit-scrollbar {
-    display: none;
-  }
-
-  /* ページ改行制御 */
-  /* block要素が印刷ページ跨ぎしないように */
-  h1,
-  h2,
-  h3,
-  p,
-  ul,
-  ol,
-  li,
-  div {
-    page-break-inside: avoid;
-  }
+.app-container.theme-hollywood {
+  --bg-color: #111;
+  --bg-elements: rgb(50, 43, 123);
+  --bg-elements-highlight: rgb(213, 78, 0);
+  --text-color: #f5d442;
+  // 豪華な金色基調など
 }

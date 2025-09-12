@@ -18,6 +18,9 @@ export default function Home() {
   const [backend, setBackend] = useState<Backend>("openai");
   const [ollamaModel, setOllamaModel] = useState("ollama:latest");
 
+  //テーマ
+  const [theme, setTheme] = useState<string>("default");
+
   // シナリオ変更時のデータ取得
   useEffect(() => {
     if (!scenarioId) return;
@@ -35,10 +38,12 @@ export default function Home() {
   }, [scenarioId]);
 
   return (
-    <div className="app-container">
+    <div className={`app-container theme-${theme}`}>
       <div className="card">
         <div className="col-span-1 overflow-auto">
           <MainPanel
+            theme={theme}
+            setTheme={setTheme}
             scenarioId={scenarioId}
             onSelectScenario={setScenarioId}
             scenario={scenario ?? undefined}
@@ -57,9 +62,9 @@ export default function Home() {
             scenario={scenario}
             messages={messages}
             setMessages={setMessages}
-            backend={backend}          // 追加: ChatPanelへ渡す
-            ollamaModel={ollamaModel}  // 追加: ChatPanelへ渡す
-            members={members}         // 追加: ChatPanelへ渡す
+            backend={backend} // 追加: ChatPanelへ渡す
+            ollamaModel={ollamaModel} // 追加: ChatPanelへ渡す
+            members={members} // 追加: ChatPanelへ渡す
           />
         </div>
       </div>
