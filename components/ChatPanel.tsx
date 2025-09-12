@@ -325,7 +325,7 @@ export default function ChatPanel({
                 );
               })()}
             <div
-              className={`${
+              className={`message-baloon ${
                 m.who === "user"
                   ? "bg-blue-600 text-white"
                   : "bg-gray-100 text-gray-900"
@@ -373,7 +373,7 @@ export default function ChatPanel({
             className={
               `px-2 py-1 border rounded flex items-center gap-2` +
               (highlightNpcId === n.id
-                ? " bg-yellow-300 border-yellow-500 next-speaker"
+                ? " next-speaker"
                 : "")
             }
           >
