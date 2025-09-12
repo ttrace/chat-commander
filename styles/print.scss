@@ -15,7 +15,7 @@
 
   /* メインカードを縦並びに */
   .card {
-    display: flex;
+    display: flex !important;
     flex-direction: column;
   }
 
